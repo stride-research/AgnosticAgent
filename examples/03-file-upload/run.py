@@ -1,10 +1,9 @@
-from __future__ import annotations
+from agentic_ai import AIAgent
 
 import asyncio
 import logging
 import warnings
 
-from agentic_ai import AIAgent
 
 logger = logging.getLogger(__name__)
 

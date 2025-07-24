@@ -1,4 +1,3 @@
-from .utils.core.function_calling import LLMProcessingLogs
 from .utils.core.schemas import LLMResponse, Interaction, InteractionType, StageType, ExtraResponseSettings
 from .utils.core.function_calling import FunctionsToToolkit, tool_registry
 from agentic_ai.utils import add_context_to_log
@@ -72,7 +71,6 @@ class AIAgent:
         self.agent_name = agent_name
         self.model_name = model_name
         self.sys_instructions = sys_instructions
-        self.LLMProcessingLogs = LLMProcessingLogs(agentName=self.agent_name)
         self.response_schema = response_schema
         self.settings = self.__set_up_settings(extra_response_settings)
         self.toolkit = FunctionsToToolkit(tool_registry)
@@ -188,21 +186,6 @@ class AIAgent:
                 return self.__complete_tool_calling_cycle(response=response, messages=messages)
         else:
             return response
-
-
-    def __process_response(self, response: ChatCompletion) -> LLMResponse:
-        """Processes the final ChatCompletion object to extract relevant data and log interactions."""
-
-        prompt_response = response.choices[0].message.content
-        
-        if self.response_schema:
-            json_dict = json.loads(prompt_response)
-            parsed_data = self.response_schema.model_validate(json_dict)
-        
-        return LLMResponse(
-            final_response=prompt_response,
-            parsed_response=parsed_data if self.response_schema else None
-        )
  
     def __generate_completition(self, messages, tools: Optional[Any] = None) -> ChatCompletion:
         logger.debug(f"Message parameter for chat completition creation is: {messages}. Additional settings is: {messages}")
@@ -237,14 +220,27 @@ class AIAgent:
         if self.number_of_interactions == 0 and tool_registry:
              logger.warning(f"The LLM hasnt invoked any function/tool, even tho u passed some tool definitions")
 
+    def __process_response(self, response: ChatCompletion) -> LLMResponse:
+        """Processes the final ChatCompletion object to extract relevant data and log interactions."""
+
+        prompt_response = response.choices[0].message.content
         
+        if self.response_schema:
+            json_dict = json.loads(prompt_response)
+            parsed_data = self.response_schema.model_validate(json_dict)
+        
+        return LLMResponse(
+            final_response=prompt_response,
+            parsed_response=parsed_data if self.response_schema else None
+        )
+    
     def prompt(self,
                    message: str, 
                    files_path: Optional[List[str]] = None) -> LLMResponse:
         """
         Sends a prompt to the LLM, handles multimodal content and function calling, and returns the final response.
         """
-        with add_context_to_log(model_name=self.model_name):
+        with add_context_to_log(agent_name=self.agent_name ,model_name=self.model_name):
             self.number_of_interactions = 0
             logger.info(f"Starting prompt. {"Files included" if files_path else "No files included."} with model {self.model_name}")
             messages = []    

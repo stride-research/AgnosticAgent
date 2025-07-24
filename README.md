@@ -6,7 +6,7 @@ Install dependencies with  `pip3 install -e `. Use the -e flag for development
 
 - [x] OpenRouter support
 - [ ] Documentation examples
-- [ ] Added file support
+- [x] Added file support
 - [ ] Add docstrings to codebase
 - [ ] Add linter 
 - [x] Logger (usage summary)
