@@ -1,14 +1,14 @@
+from .utils.core.function_calling import LLMProcessingLogs
+from .utils.core.schemas import LLMResponse, Interaction, InteractionType, StageType, ExtraResponseSettings
+from .utils.core.function_calling import FunctionsToToolkit, tool_registry
+from agentic_ai.utils import add_context_to_log
+
 import json
 import os
 import logging
 import base64
 from typing import Optional, Any, Tuple, List, Dict, Type
-
-
-from .utils.core.function_calling import LLMProcessingLogs
-from .utils.core.schemas import LLMResponse, Interaction, InteractionType, StageType, ExtraResponseSettings
-from .utils.core.function_calling import FunctionsToToolkit, tool_registry
-from agentic_ai.utils import add_context_to_log
+import concurrent.futures
 
 from openai import OpenAI
 from openai.types.chat import ChatCompletion
@@ -142,34 +142,35 @@ class AIAgent:
 
         tool_calls = response.choices[0].message.tool_calls
         logger.debug(f"Tool calls: {tool_calls}")
-        # if tool_calls:
-        #     tool_calls = tool_calls[:1] # TODO: Remove and allow for multiple functions call in parallel
-        #     for tool_call in tool_calls:
-        #         logger.debug(f"Tool calling: {tool_call}")
-        #         function_name = tool_call.function.name
-        #         function_args = json.loads(tool_call.function.arguments)
-        #         logger.debug(f"Function to call: {function_name}")
-        #         logger.debug(f"Function params to call with: {json.dumps(function_args, indent=2)}")
-        #         output_result = self.toolkit.execute(func_name=function_name, **function_args)
-        #         logger.debug(f"Output result: {output_result}")
+        if tool_calls:
+            with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor: # If more than 4 tasks they will be enqueued
+                future_to_function_name = {}
+                for tool_call in tool_calls:
+                    function_name = tool_call.function.name
+                    function_args = json.loads(tool_call.function.arguments)
+                    logger.debug(f"Gotta call {function_name} with {function_args}")
+                    future = executor.submit(self.toolkit.execute, function_name, **function_args)
+                    future_to_function_name[future] = function_name
+                
+                for future in concurrent.futures.as_completed(future_to_function_name.keys()):
+                    function_name_completed = future_to_function_name[future] # Retrieve the function name
+                    data = future.result()
+                    logger.debug(f"Completed future: {function_name_completed} with data: {data} ")
 
-        #         messages.append( # Adding to conversation context the output of the function 
-        #                 {
-        #                     "role": "tool",
-        #                     "tool_call_id": tool_call.id,
-        #                     "name": function_name,
-        #                     "content": str(output_result)
-        #                 }
-        #         )
+                    messages.append( # Adding to conversation context the output of the function 
+                         {
+                             "role": "tool",
+                             "tool_call_id": tool_call.id,
+                             "name": function_name,
+                             "content": str(data)
+                         }
+                 )
+            response = self.__generate_completition(messages=messages)
+            self.__log_response(response)
+            return self.__complete_tool_calling_cycle(response=response, messages=messages)
+        else:
+            return response
 
-        #         logger.debug("SECOND RESPONSE from OpenAI:")
-        #         logger.debug("Going for the second completition")
-        #         response = self.__generate_completition(messages=messages)
-        #         self.__log_response(response)
-        #         return self.__complete_tool_calling_cycle(response=response, messages=messages)
-        # else:
-        #     return response
-        return response
 
     def __process_response(self, response: ChatCompletion) -> LLMResponse:
         """Processes the final ChatCompletion object to extract relevant data and log interactions."""
@@ -215,15 +216,15 @@ class AIAgent:
         
     def prompt(self,
                    message: str, 
-                   files: Optional[List[str]] = None) -> LLMResponse:
+                   files_path: Optional[List[str]] = None) -> LLMResponse:
         """
         Sends a prompt to the LLM, handles multimodal content and function calling, and returns the final response.
         """
 
         messages = []    
         user_content = [{"type": "text", "text": message}]
-        if files:
-            processed_files = self.__process_files(files)
+        if files_path:
+            processed_files = self.__process_files(files_path)
             user_content.extend(processed_files)
         if self.sys_instructions:
             messages.append({"role": "developer", "content": self.sys_instructions})
@@ -237,10 +238,12 @@ class AIAgent:
             tools=self.toolkit.schematize() if self.toolkit else None,
         )
 
-        #self.__log_response(response=response)
+        self.__log_response(response=response)
 
         logger.debug(f"Tool calls: {response.choices[0].message.tool_calls}")
+        #print(f"AAAA"*90)
         if response.choices[0].message.tool_calls:
+            #print(f"BBBBBBBBB"*30)
             response = self.__complete_tool_calling_cycle(response=response, messages=messages)
             logger.debug(f"Total number of tools cycles: {NUMBER_OF_ITERS}")
 

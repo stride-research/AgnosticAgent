@@ -1,42 +1,28 @@
-import logging
+from __future__ import annotations
+
 import asyncio
-from typing import List
+import logging
 
-from utils.agents import FileIngestor
-
-from radical.asyncflow import WorkflowEngine, ThreadExecutionBackend
-from agentic_ai import AcademyWorkflowIntegration
-from agentic_ai.utils import add_context_to_log
+from agentic_ai import AIAgent
 
 logger = logging.getLogger(__name__)
 
-async def main() -> int:
+files_path = [
+                        #"examples/03-file-upload/utils/files/lecture_12_26022025.pdf",
+                        "examples/03-file-upload/utils/files/ny.png"
+                  ]
 
-      backend = ThreadExecutionBackend({})
-      backend.set_main_loop()
-      flow = WorkflowEngine(backend=backend)
-
-      async with AcademyWorkflowIntegration(flow) as manager:
-            ingest_files_task = manager.create_agent_task(
-                  agent_class=FileIngestor,
-                  action_name="ingest_files"
+def run_example():
+      LLMAgent = AIAgent(
+                  agent_name="File ingestor",
+                  sys_instructions="You have to provide concise explanations of the uploaded files",
+                  model_name="google/gemini-2.0-flash-001",
             )
 
-            @flow.function_task
-            async def ingest_block(files: List[str]):
-                  return await ingest_files_task(files)
-            
-            with add_context_to_log(agent_id=FileIngestor.__name__):
-                  response = await ingest_block(files=[
-                        "examples/LLM/03-file-upload/utils/files/ny.png",
-                        "examples/LLM/03-file-upload/utils/files/lecture_12_26022025.pdf"
-                  ])
-                  with add_context_to_log(temp="foo"):
-                        logger.warning("This is a fake warning")
-                  logger.debug(f"Response is: {response}")
-                  
-
-      await flow.shutdown()
+      response = LLMAgent.prompt(message="Describe ALL the uploaded artifacts in less than 10 words for each", 
+                                           files_path=files_path)
+      
+      logger.info(f"Response is {response}")
 
 if __name__ == "__main__":
-      asyncio.run(main())
+    run_example()

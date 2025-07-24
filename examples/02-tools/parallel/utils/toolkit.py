@@ -3,7 +3,7 @@
 import logging
 
 from pydantic import Field, BaseModel
-from agentic_ai.LLM_agent import tool
+from agentic_ai.utils import tool_registry, tool
 
 logger = logging.getLogger(__name__)
 

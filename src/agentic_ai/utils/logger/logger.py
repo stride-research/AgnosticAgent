@@ -1,11 +1,16 @@
+from .colorfulFormatter import ColoredJSONFormatter
+
 import logging
 import logging.handlers
 import queue
 import sys
-from pythonjsonlogger import jsonlogger
-import contextvars
 from contextlib import contextmanager
-from .colorfulFormatter import ColoredJSONFormatter
+import contextvars
+import atexit
+
+from pythonjsonlogger import jsonlogger
+
+
 
 
 class ContextAwareQueueHandler(logging.handlers.QueueHandler):
@@ -21,16 +26,18 @@ class ContextAwareQueueHandler(logging.handlers.QueueHandler):
 class Logger():
     def __init__(self, colorful_output=True) -> None:
         self.colorful_output = colorful_output
-        queue_handler = self.__set_up_queue_handler()
+        self.queue_handler = self.__set_up_queue_handler()
         self.root_logger = logging.getLogger()
         self.root_logger.setLevel(logging.DEBUG)
-        self.root_logger.addHandler(queue_handler)
+        self.root_logger.addHandler(self.queue_handler)
+
+        atexit.register(self.shutdown)
                 
     def __set_up_queue_handler(self):
         log_queue = queue.Queue(-1)
         console_handler = self.__bind_handlers()
-        listener = logging.handlers.QueueListener(log_queue, console_handler)
-        listener.start()
+        self.listener = logging.handlers.QueueListener(log_queue, console_handler)
+        self.listener.start()
         
         queue_handler = ContextAwareQueueHandler(log_queue)
         return queue_handler
@@ -55,6 +62,18 @@ class Logger():
             )
         
             return formatter
+    
+    def shutdown(self):
+        """
+        Stops the QueueListener and flushes any remaining logs.
+        """
+        if self.listener:
+            logging.info("Shutting down logging listener...")
+            self.listener.stop()
+            logging.info("Logging listener stopped.")
+        # Remove the queue handler from the root logger to prevent further logging attempts
+        if self.queue_handler in self.root_logger.handlers:
+            self.root_logger.removeHandler(self.queue_handler)
 
 LOG_CONTEXT = contextvars.ContextVar("log_context", default={})         
 

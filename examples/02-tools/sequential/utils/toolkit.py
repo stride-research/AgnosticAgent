@@ -1,5 +1,5 @@
 from pydantic import Field, BaseModel
-from agentic_ai.LLM_agent import tool_registry, tool, FunctionsToToolkit
+from agentic_ai.utils import tool_registry, tool
 
 
 
