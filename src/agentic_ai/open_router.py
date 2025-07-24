@@ -2,26 +2,23 @@ import json
 import os
 import logging
 import base64
-import mimetypes
 from typing import Optional, Any, Tuple, List, Dict, Type
-from dotenv import load_dotenv
 
 
 from .utils.core.function_calling import LLMProcessingLogs
 from .utils.core.schemas import LLMResponse, Interaction, InteractionType, StageType, ExtraResponseSettings
-from .LLM_agent.utils import FunctionsToToolkit, tool_registry
+from .utils.core.function_calling import FunctionsToToolkit, tool_registry
+from agentic_ai.utils import add_context_to_log
 
 from openai import OpenAI
 from openai.types.chat import ChatCompletion
-from pydantic import BaseModel, create_model
-from agentic_ai.utils import add_context_to_log
+from pydantic import BaseModel
+from dotenv import load_dotenv
 
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-
 NUMBER_OF_ITERS = 0
-
 
 class AIAgent:
     """ 
@@ -34,7 +31,7 @@ class AIAgent:
     """
     def __init__(self, 
                  agent_name: str,
-                 model_name: str,
+                 model_name: str = "google/gemini-2.5-pro",
                  sys_instructions: Optional[str] = None, 
                  response_schema: Optional[Type[BaseModel]] = None,
                  extra_response_settings: Optional[Type[ExtraResponseSettings]] = ExtraResponseSettings(),

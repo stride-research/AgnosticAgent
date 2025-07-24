@@ -1,6 +1,6 @@
 # pyproject.toml
 [project]
-name = "flowcademy"
+name = "agentic_ai"
 version = "0.1.0"
 description = "Agentic AI framework"
 readme = "README.md"
@@ -19,13 +19,13 @@ authors = [ # List of authors
 
 
 [project.urls]
-Homepage = "https://github.com/AymenFJA/flowcademy/"
+Homepage = "https://github.com/stride-research/agentic_ai_framework"
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"] 
 build-backend = "setuptools.build_meta" 
 
 [tool.setuptools] # Automatically looks up for packagages
-packages = ["flowcademy"]
+packages = ["agentic_ai"]
 package-dir = {"" = "src"} 
                            
