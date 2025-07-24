@@ -1,0 +1,31 @@
+# pyproject.toml
+[project]
+name = "flowcademy"
+version = "0.1.0"
+description = "Agentic AI framework"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+      
+]
+license = { text = "MIT License" }
+keywords = [""] # List of keywords to help discovery
+
+authors = [ # List of authors
+  { name = "Javier Dominguez", email = "an@example.com" },
+  { name = "Aymen Alsadi", email = "another@example.com" },
+  { name = "Yousef Amirghofran", email = "another@example.com" },
+]
+
+
+[project.urls]
+Homepage = "https://github.com/AymenFJA/flowcademy/"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"] 
+build-backend = "setuptools.build_meta" 
+
+[tool.setuptools] # Automatically looks up for packagages
+packages = ["flowcademy"]
+package-dir = {"" = "src"} 
+                           
