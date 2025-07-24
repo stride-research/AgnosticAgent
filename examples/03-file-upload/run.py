@@ -18,6 +18,7 @@ def run_example():
                   agent_name="File ingestor",
                   sys_instructions="You have to provide concise explanations of the uploaded files",
                   model_name="google/gemini-2.0-flash-001",
+                  tools=[]
             )
 
       response = LLMAgent.prompt(message="Describe ALL the uploaded artifacts in less than 10 words for each", 

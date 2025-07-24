@@ -14,7 +14,8 @@ def run_example(text: str):
 
       SumamarizerAgent = AIAgent(
                         agent_name="TextSummarizer",
-                        sys_instructions="Summarize any text you receive"
+                        sys_instructions="Summarize any text you receive",
+                        tools=[]
       )
 
       summarizer_response = SumamarizerAgent.prompt(message=f"Summarize this text in its original language: {text}")
@@ -22,7 +23,8 @@ def run_example(text: str):
       LanguageDetectorAgent = AIAgent( # This could have been done in parallel but we are going for sequential for simplicity
                         agent_name="LanguageDetectorAgent",
                         sys_instructions="Detect the language of the text you receive",
-                        response_schema=LanguageSchema
+                        response_schema=LanguageSchema,
+                        tools=[]
       )
 
       languageDetector_response = LanguageDetectorAgent.prompt(message=f"What language is this in?: {summarizer_response.final_response}")
@@ -32,7 +34,8 @@ def run_example(text: str):
             logger.info(f"Text was NOT IN {PREFERRED_LANGUAGE}")
             TranslatorAgent = AIAgent(
                               agent_name="TextTranslator",
-                              sys_instructions=f"Translate any text to {PREFERRED_LANGUAGE}"
+                              sys_instructions=f"Translate any text to {PREFERRED_LANGUAGE}",
+                              tools=[]
             )
 
             summarizer_response = TranslatorAgent.prompt(message=f"Translatie this text: {text}")

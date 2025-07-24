@@ -6,8 +6,11 @@ import json
 import os
 import logging
 import base64
-from typing import Optional, Any, Tuple, List, Dict, Type
+from typing import Optional, Any, Tuple, List, Dict, Type, Callable
 import concurrent.futures
+import time
+import inspect
+
 
 from openai import OpenAI
 from openai.types.chat import ChatCompletion
@@ -48,6 +51,7 @@ class AIAgent:
                  model_name: str = "google/gemini-2.5-pro",
                  sys_instructions: Optional[str] = None, 
                  response_schema: Optional[Type[BaseModel]] = None,
+                 tools: Optional[List[Callable]] = None,
                  extra_response_settings: Optional[Type[ExtraResponseSettings]] = ExtraResponseSettings(),
                  ) -> None:
         """
@@ -73,7 +77,17 @@ class AIAgent:
         self.sys_instructions = sys_instructions
         self.response_schema = response_schema
         self.settings = self.__set_up_settings(extra_response_settings)
-        self.toolkit = FunctionsToToolkit(tool_registry)
+        tools_to_use = self.__set_up_toolkit(tools=tools)
+        self.toolkit = FunctionsToToolkit(tools_to_use)
+    
+    def __set_up_toolkit(self, tools: Optional[List[Callable]] = None):
+        tools_to_use = {}
+        for tool_name in tools:
+            if tool_name in tool_registry.keys():
+                   tools_to_use[tool_name] = tool_registry[tool_name]
+            else:
+                  logger.warning(f"Tool '{tool_name}' was requested for agent '{self.agent_name}' but not found in global tool_registry.")
+        return tools_to_use
    
     def __set_up_settings(self, extra_response_settings: ExtraResponseSettings):
         params = extra_response_settings.model_dump(
@@ -129,7 +143,7 @@ class AIAgent:
                 with add_context_to_log(file_name=f.name):
                     file_size_bytes = os.path.getsize(file_path)
                     file_size_mb = file_size_bytes / (1024 * 1024)
-                    logger.debug(f"File size is: {file_size_mb} MB")
+                    logger.debug(f"File size is: {round(file_size_mb,2)} MB")
 
                     base_64_string = base64.b64encode(f.read()).decode("utf-8")
                     file_extension = os.path.splitext(file_path)[1].lower()
@@ -214,11 +228,12 @@ class AIAgent:
         else:
             print("No reasoning provided in the message.")
     
-    def __summary_log(self):
+    def __summary_log(self, starting_time: int):
         logger.info(f"Cumulative token usage: prompt={self.cumulative_token_usage['prompt_tokens']}, completion={self.cumulative_token_usage['completion_tokens']}, total={self.cumulative_token_usage['total_tokens']}")
         logger.info(f"{self.number_of_interactions} interactions occured in function calling")
         if self.number_of_interactions == 0 and tool_registry:
              logger.warning(f"The LLM hasnt invoked any function/tool, even tho u passed some tool definitions")
+        logger.info(f"Took {round(time.time() - starting_time,2)} seconds to fullfill the given prompt")
 
     def __process_response(self, response: ChatCompletion) -> LLMResponse:
         """Processes the final ChatCompletion object to extract relevant data and log interactions."""
@@ -241,6 +256,7 @@ class AIAgent:
         Sends a prompt to the LLM, handles multimodal content and function calling, and returns the final response.
         """
         with add_context_to_log(agent_name=self.agent_name ,model_name=self.model_name):
+            starting_time = time.time()
             self.number_of_interactions = 0
             logger.info(f"Starting prompt. {"Files included" if files_path else "No files included."} with model {self.model_name}")
             messages = []    
@@ -268,9 +284,19 @@ class AIAgent:
                 response = self.__complete_tool_calling_cycle(response=response, messages=messages)
 
             # Loggin final metrics
-            self.__summary_log()
+            self.__summary_log(starting_time=starting_time)
             processed_response =  self.__process_response(response)
+            logger.debug(f"Final resposne is: {processed_response}")
             return processed_response
 
 
        
+class ToolkitBase():
+    def extract_tools_names(self):
+        tool_names = []
+        for name, attr in self.__class__.__dict__.items():
+            if callable(attr) and inspect.isfunction(attr) and not name.startswith("_") and name != "extract_tools_names":
+               tool_names.append(name)
+        logger.debug(f"For {self.__class__} toolkit class, the following tools have been registered: {tool_names}")
+        return tool_names
+
