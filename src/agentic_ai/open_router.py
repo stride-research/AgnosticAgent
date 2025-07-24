@@ -7,10 +7,11 @@ import json
 import os
 import logging
 import base64
+import asyncio
+import aiofiles
 from typing import Optional, Any, Tuple, List, Dict, Type
-import concurrent.futures
 
-from openai import OpenAI
+from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletion
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -59,7 +60,7 @@ class AIAgent:
         if not api_key:
             raise ValueError("Couldn't find OpenRouter's API key in OPEN_ROUTER_API_KEY environment variable.")
         
-        self.client = OpenAI(
+        self.client = AsyncOpenAI(
             api_key=api_key,
             base_url="https://openrouter.ai/api/v1"
         )
@@ -88,17 +89,19 @@ class AIAgent:
         return params
 
     
-    def __process_files(self, files: List[str]) -> List[Dict]:
+    async def __process_files(self, files: List[str]) -> List[Dict]:
         """Processes local files into OpenRouter API format."""
         processed_files = []
-        for file_path in files:
-            with open(file_path, "rb") as f:
-                with add_context_to_log(file_name=f.name):
+        
+        async def process_single_file(file_path: str) -> Dict:
+            async with aiofiles.open(file_path, "rb") as f:
+                with add_context_to_log(file_name=file_path):
                     file_size_bytes = os.path.getsize(file_path)
                     file_size_mb = file_size_bytes / (1024 * 1024)
                     logger.debug(f"File size is: {file_size_mb}MB")
 
-                    base_64_string = base64.b64encode(f.read()).decode("utf-8")
+                    content = await f.read()
+                    base_64_string = base64.b64encode(content).decode("utf-8")
                     
                     # Detect file type and set appropriate content type
                     file_extension = os.path.splitext(file_path)[1].lower()
@@ -132,9 +135,13 @@ class AIAgent:
                             }
                         }
                     
-                    processed_files.append(structure)
+                    return structure
+        
+        # Process files concurrently
+        tasks = [process_single_file(file_path) for file_path in files]
+        processed_files = await asyncio.gather(*tasks)
         return processed_files
-    def __complete_tool_calling_cycle(self, response: ChatCompletion, messages: List[dict[str, str]]):
+    async def __complete_tool_calling_cycle(self, response: ChatCompletion, messages: List[dict[str, str]]):
         """
         
         Receives a response + message (context), observes if a tool call is requested, executes the given
@@ -150,34 +157,40 @@ class AIAgent:
         if tool_calls and self.number_of_interactions < self.interactions_limit:
             self.number_of_interactions += 1
             with add_context_to_log(interacion_number=self.number_of_interactions):
-                with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor: # If more than 4 tasks they will be enqueued
-                    future_to_function_name = {}
-                    for tool_call in tool_calls:
-                        function_name = tool_call.function.name
-                        function_args = json.loads(tool_call.function.arguments)
-                        logger.debug(f"Gotta call {function_name} with {function_args}")
-                        future = executor.submit(self.toolkit.execute, function_name, **function_args)
-                        future_to_function_name[future] = function_name
+                # Use asyncio.gather for concurrent execution of tool calls
+                async def execute_tool_call(tool_call):
+                    function_name = tool_call.function.name
+                    function_args = json.loads(tool_call.function.arguments)
+                    logger.debug(f"Gotta call {function_name} with {function_args}")
                     
-                    for future in concurrent.futures.as_completed(future_to_function_name.keys()):
-                        function_name_completed = future_to_function_name[future] # Retrieve the function name
-                        data = future.result()
-                        logger.debug(f"Completed future: {function_name_completed} with data: {data} ")
-
-                        messages.append( # Adding to conversation context the output of the function 
-                            {
-                                "role": "tool",
-                                "tool_call_id": tool_call.id,
-                                "name": function_name,
-                                "content": str(data)
-                            }
-                    )
-                response = self.__generate_completition(
-                                                        messages=messages,
-                                                        tools=self.toolkit.schematize() if self.toolkit else None,
-                                                        )
+                    # Execute the tool call
+                    data = await asyncio.to_thread(self.toolkit.execute, function_name, **function_args)
+                    logger.debug(f"Completed tool call: {function_name} with data: {data}")
+                    
+                    return {
+                        "tool_call_id": tool_call.id,
+                        "name": function_name,
+                        "content": str(data)
+                    }
+                
+                # Execute all tool calls concurrently
+                tool_results = await asyncio.gather(*[execute_tool_call(tc) for tc in tool_calls])
+                
+                # Add all results to messages
+                for result in tool_results:
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": result["tool_call_id"],
+                        "name": result["name"],
+                        "content": result["content"]
+                    })
+                
+                response = await self.__generate_completition(
+                    messages=messages,
+                    tools=self.toolkit.schematize() if self.toolkit else None,
+                )
                 self.__log_response(response)
-                return self.__complete_tool_calling_cycle(response=response, messages=messages)
+                return await self.__complete_tool_calling_cycle(response=response, messages=messages)
         else:
             return response
 
@@ -213,10 +226,10 @@ class AIAgent:
             print("No reasoning provided in the message.")
         print("="*30)
     
-    def __generate_completition(self, messages, tools: Optional[Any] = None) -> ChatCompletion:
+    async def __generate_completition(self, messages, tools: Optional[Any] = None) -> ChatCompletion:
         logger.debug(f"Adding the following settings: {self.settings}")
         logger.debug(f"Message is: {messages}")
-        response = self.client.chat.completions.create(
+        response = await self.client.chat.completions.create(
                     model = self.model_name,
                     messages = messages,
                     tools = tools if tools else None,
@@ -224,7 +237,7 @@ class AIAgent:
                 )
         return response
         
-    def prompt(self,
+    async def prompt(self,
                    message: str, 
                    files_path: Optional[List[str]] = None) -> LLMResponse:
         """
@@ -234,7 +247,7 @@ class AIAgent:
         messages = []    
         user_content = [{"type": "text", "text": message}]
         if files_path:
-            processed_files = self.__process_files(files_path)
+            processed_files = await self.__process_files(files_path)
             user_content.extend(processed_files)
         if self.sys_instructions:
             messages.append({"role": "developer", "content": self.sys_instructions})
@@ -243,7 +256,7 @@ class AIAgent:
         messages.append({"role": "developer", "content": developer_instructions})
         logger.debug(f"Message is: {messages}")
         
-        response = self.__generate_completition(
+        response = await self.__generate_completition(
             messages=messages,
             tools=self.toolkit.schematize() if self.toolkit else None,
         )
@@ -252,7 +265,7 @@ class AIAgent:
 
         logger.debug(f"Tool calls: {response.choices[0].message.tool_calls}")
         if response.choices[0].message.tool_calls:
-            response = self.__complete_tool_calling_cycle(response=response, messages=messages)
+            response = await self.__complete_tool_calling_cycle(response=response, messages=messages)
             logger.debug(f"Total number of tools cycles: {self.number_of_interactions}")
 
         processed_response =  self.__process_response(response)
