@@ -8,12 +8,13 @@ Install dependencies with  `pip3 install -e `. Use the -e flag for development
 - [ ] Documentation examples
 - [x] Added file support
 - [ ] Add docstrings to codebase
-- [ ] Add linter 
+- [x] Add linter 
 - [x] Logger (usage summary)
 - [ ] Memory mechanisms
 - [ ] Fault tolerance
 - [ ] Prompt caching
 - [ ] Testing framework
+- [x] Add CI pipeline
 - [ ] Ollama interface
 - [ ] Async support (Yousef working on this)
 - [ ] Apply this framework for IMPRESS use case (work on this [repo](https://github.com/stride-research/impress-agentic))
