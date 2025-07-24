@@ -51,7 +51,7 @@ class AIAgent:
                  model_name: str = "google/gemini-2.5-pro",
                  sys_instructions: Optional[str] = None, 
                  response_schema: Optional[Type[BaseModel]] = None,
-                 tools: Optional[List[Callable]] = None,
+                 tools: Optional[List[Callable]] = [],
                  extra_response_settings: Optional[Type[ExtraResponseSettings]] = ExtraResponseSettings(),
                  ) -> None:
         """
@@ -77,7 +77,8 @@ class AIAgent:
         self.sys_instructions = sys_instructions
         self.response_schema = response_schema
         self.settings = self.__set_up_settings(extra_response_settings)
-        tools_to_use = self.__set_up_toolkit(tools=tools)
+        self.tools = tools
+        tools_to_use = self.__set_up_toolkit(tools=tools) if tools else {}
         self.toolkit = FunctionsToToolkit(tools_to_use)
     
     def __set_up_toolkit(self, tools: Optional[List[Callable]] = None):
@@ -231,7 +232,7 @@ class AIAgent:
     def __summary_log(self, starting_time: int):
         logger.info(f"Cumulative token usage: prompt={self.cumulative_token_usage['prompt_tokens']}, completion={self.cumulative_token_usage['completion_tokens']}, total={self.cumulative_token_usage['total_tokens']}")
         logger.info(f"{self.number_of_interactions} interactions occured in function calling")
-        if self.number_of_interactions == 0 and tool_registry:
+        if self.number_of_interactions == 0 and self.tools:
              logger.warning(f"The LLM hasnt invoked any function/tool, even tho u passed some tool definitions")
         logger.info(f"Took {round(time.time() - starting_time,2)} seconds to fullfill the given prompt")
 

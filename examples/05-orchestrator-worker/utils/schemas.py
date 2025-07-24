@@ -7,9 +7,14 @@ from pydantic import BaseModel
 class ORMResponseSchema(BaseModel):
       extracted_text: str
 
-class Chunk(BaseModel):
+class ChunkNamed(BaseModel):
       title: str
-      description: str
+      summary: str
+      keyword: str
+
+class ChunkNotNamed(BaseModel):
+      summary: str
+      keyword: str
 
 class ChunkerResponseSchema(BaseModel):
-      chunks: List[Chunk]
+      chunks: List[ChunkNamed]
