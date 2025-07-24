@@ -33,11 +33,17 @@ class AIAgent:
     It handles system instructions, structured JSON output, and function calling.
 
     TODO:
-        - Bound interactions in tool cycle
         - Consumption usage logging
     """
     number_of_interactions = 0
     interactions_limit = 10 # Usage limit for recursive tool calling
+    token_usage = None
+    cumulative_token_usage = {
+        'prompt_tokens': 0,
+        'completion_tokens': 0,
+        'total_tokens': 0
+    }
+
     def __init__(self, 
                  agent_name: str,
                  model_name: str = "google/gemini-2.5-pro",
@@ -72,7 +78,6 @@ class AIAgent:
         self.toolkit = FunctionsToToolkit(tool_registry)
    
     def __set_up_settings(self, extra_response_settings: ExtraResponseSettings):
-
         params = extra_response_settings.model_dump(
             exclude_none=True
         )
@@ -87,23 +92,8 @@ class AIAgent:
             }
         return params
 
-    
-    def __process_files(self, files: List[str]) -> List[Dict]:
-        """Processes local files into OpenRouter API format."""
-        processed_files = []
-        for file_path in files:
-            with open(file_path, "rb") as f:
-                with add_context_to_log(file_name=f.name):
-                    file_size_bytes = os.path.getsize(file_path)
-                    file_size_mb = file_size_bytes / (1024 * 1024)
-                    logger.debug(f"File size is: {file_size_mb}MB")
-
-                    base_64_string = base64.b64encode(f.read()).decode("utf-8")
-                    
-                    # Detect file type and set appropriate content type
-                    file_extension = os.path.splitext(file_path)[1].lower()
-                    
-                    if file_extension in ['.png', '.jpg', '.jpeg', '.webp']:
+    def __extract_structure(self, file_extension:str, base_64_string: str, file_path:str) -> dict:
+        if file_extension in ['.png', '.jpg', '.jpeg', '.webp']:
                         # Handle images
                         content_type = 'image/png' if file_extension == '.png' else 'image/jpeg' if file_extension in ['.jpg', '.jpeg'] else 'image/webp'
                         structure = {
@@ -112,7 +102,7 @@ class AIAgent:
                                 "url": f"data:{content_type};base64,{base_64_string}"
                             }
                         }
-                    elif file_extension == '.pdf':
+        elif file_extension == '.pdf':
                         # Handle PDFs
                         structure = {
                             "type": "file",
@@ -121,7 +111,7 @@ class AIAgent:
                                 "file_data": f"data:application/pdf;base64,{base_64_string}"
                             }
                         }
-                    else:
+        else:
                         # Default to PDF format for unknown types
                         logger.warning(f"Unknown file type {file_extension}, treating as PDF")
                         structure = {
@@ -131,9 +121,28 @@ class AIAgent:
                                 "file_data": f"data:application/pdf;base64,{base_64_string}"
                             }
                         }
+        return structure
+    
+    def __process_files(self, files: List[str]) -> List[Dict]:
+        """Processes local files into OpenRouter API format."""
+        processed_files = []
+        for file_path in files:
+            with open(file_path, "rb") as f:
+                with add_context_to_log(file_name=f.name):
+                    file_size_bytes = os.path.getsize(file_path)
+                    file_size_mb = file_size_bytes / (1024 * 1024)
+                    logger.debug(f"File size is: {file_size_mb} MB")
+
+                    base_64_string = base64.b64encode(f.read()).decode("utf-8")
+                    file_extension = os.path.splitext(file_path)[1].lower()
+                    
+                    structure = self.__extract_structure(file_extension=file_extension,
+                                                         base_64_string=base_64_string,
+                                                         file_path=file_path)
                     
                     processed_files.append(structure)
         return processed_files
+    
     def __complete_tool_calling_cycle(self, response: ChatCompletion, messages: List[dict[str, str]]):
         """
         
@@ -142,28 +151,27 @@ class AIAgent:
         If no tool call is needed it will return the response object.
         
         """
-        messages.append(response.choices[0].message.dict()) # Adding to conversation context the tool call request . NOTE: All this much context should probably not be included
-        #messages.append({"assistant": response.choices[0].message.content})
+        messages.append(response.choices[0].message.dict()) # Adding to conversation context the tool call request . NOTE: All this much context should probably not be included. To be researched
 
         tool_calls = response.choices[0].message.tool_calls
         logger.debug(f"Tool calls: {tool_calls}")
         if tool_calls and self.number_of_interactions < self.interactions_limit:
             self.number_of_interactions += 1
             with add_context_to_log(interacion_number=self.number_of_interactions):
-                with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor: # If more than 4 tasks they will be enqueued
+                with concurrent.futures.ProcessPoolExecutor() as executor: # If more than 4 tasks they will be enqueued
                     future_to_function_name = {}
                     for tool_call in tool_calls:
                         function_name = tool_call.function.name
                         function_args = json.loads(tool_call.function.arguments)
-                        logger.debug(f"Gotta call {function_name} with {function_args}")
+                        logger.debug(f"Calling {function_name} with {function_args}")
+
                         future = executor.submit(self.toolkit.execute, function_name, **function_args)
                         future_to_function_name[future] = function_name
                     
                     for future in concurrent.futures.as_completed(future_to_function_name.keys()):
-                        function_name_completed = future_to_function_name[future] # Retrieve the function name
+                        function_name_completed = future_to_function_name[future] 
                         data = future.result()
-                        logger.debug(f"Completed future: {function_name_completed} with data: {data} ")
-
+                        logger.debug(f"Completed future: {function_name_completed} with data: {data}")
                         messages.append( # Adding to conversation context the output of the function 
                             {
                                 "role": "tool",
@@ -195,27 +203,9 @@ class AIAgent:
             final_response=prompt_response,
             parsed_response=parsed_data if self.response_schema else None
         )
-    
-    def __log_response(self, response: ChatCompletion):
-        print("Raw response from OpenAI:")
-        logger.debug(response)
-        print("="*30)
-        logger.debug(f"Response __dict__: {response.__dict__}")
-        print("="*30)
-        logger.debug(f"Message dict(): {response.choices[0].message.dict()}")
-        print("="*30)
-        logger.debug(f"Message: {response.choices[0].message}")
-        print("="*30)
-        reasoning = getattr(response.choices[0].message, 'reasoning', None)
-        if reasoning:
-            print(f"Reasoning: {reasoning}")
-        else:
-            print("No reasoning provided in the message.")
-        print("="*30)
-    
+ 
     def __generate_completition(self, messages, tools: Optional[Any] = None) -> ChatCompletion:
-        logger.debug(f"Adding the following settings: {self.settings}")
-        logger.debug(f"Message is: {messages}")
+        logger.debug(f"Message parameter for chat completition creation is: {messages}. Additional settings is: {messages}")
         response = self.client.chat.completions.create(
                     model = self.model_name,
                     messages = messages,
@@ -223,6 +213,30 @@ class AIAgent:
                     **self.settings
                 )
         return response
+    
+    def __update_cumulative_token_usage(self, response: ChatCompletion):
+        usage = getattr(response, 'usage', None)
+        if usage:
+            self.cumulative_token_usage['prompt_tokens'] += getattr(usage, 'prompt_tokens', 0)
+            self.cumulative_token_usage['completion_tokens'] += getattr(usage, 'completion_tokens', 0)
+            self.cumulative_token_usage['total_tokens'] += getattr(usage, 'total_tokens', 0)
+    
+    def __log_response(self, response: ChatCompletion):
+        logger.debug(f"Full response: {response}")
+        logger.debug(f"Text response: {response.choices[0].message.content}")
+        self.__update_cumulative_token_usage(response)
+        reasoning = getattr(response.choices[0].message, 'reasoning', None)
+        if reasoning:
+            print(f"Reasoning response: {reasoning}")
+        else:
+            print("No reasoning provided in the message.")
+    
+    def __summary_log(self):
+        logger.info(f"Cumulative token usage: prompt={self.cumulative_token_usage['prompt_tokens']}, completion={self.cumulative_token_usage['completion_tokens']}, total={self.cumulative_token_usage['total_tokens']}")
+        logger.info(f"{self.number_of_interactions} interactions occured in function calling")
+        if self.number_of_interactions == 0 and tool_registry:
+             logger.warning(f"The LLM hasnt invoked any function/tool, even tho u passed some tool definitions")
+
         
     def prompt(self,
                    message: str, 
@@ -230,32 +244,37 @@ class AIAgent:
         """
         Sends a prompt to the LLM, handles multimodal content and function calling, and returns the final response.
         """
+        with add_context_to_log(model_name=self.model_name):
+            self.number_of_interactions = 0
+            logger.info(f"Starting prompt. {"Files included" if files_path else "No files included."} with model {self.model_name}")
+            messages = []    
+            user_content = [{"type": "text", "text": message}]
+            if files_path:
+                processed_files = self.__process_files(files_path)
+                user_content.extend(processed_files)
+            
+            # Appending context (user message, developer instructions (fixed + user-provided))
+            if self.sys_instructions: 
+                messages.append({"role": "developer", "content": self.sys_instructions})
+            messages.append({"role": "user", "content": user_content})
+            messages.append({"role": "developer", "content": developer_instructions})
+            
+            response = self.__generate_completition(
+                messages=messages,
+                tools=self.toolkit.schematize() if self.toolkit else None,
+            )
 
-        messages = []    
-        user_content = [{"type": "text", "text": message}]
-        if files_path:
-            processed_files = self.__process_files(files_path)
-            user_content.extend(processed_files)
-        if self.sys_instructions:
-            messages.append({"role": "developer", "content": self.sys_instructions})
-        messages.append({"role": "user", "content":user_content})
-        
-        messages.append({"role": "developer", "content": developer_instructions})
-        logger.debug(f"Message is: {messages}")
-        
-        response = self.__generate_completition(
-            messages=messages,
-            tools=self.toolkit.schematize() if self.toolkit else None,
-        )
+            # Logging initial response
+            self.__log_response(response=response)
 
-        self.__log_response(response=response)
+            # Calling tools if needed
+            if response.choices[0].message.tool_calls:
+                response = self.__complete_tool_calling_cycle(response=response, messages=messages)
 
-        logger.debug(f"Tool calls: {response.choices[0].message.tool_calls}")
-        if response.choices[0].message.tool_calls:
-            response = self.__complete_tool_calling_cycle(response=response, messages=messages)
-            logger.debug(f"Total number of tools cycles: {self.number_of_interactions}")
+            # Loggin final metrics
+            self.__summary_log()
+            processed_response =  self.__process_response(response)
+            return processed_response
 
-        processed_response =  self.__process_response(response)
-        return processed_response
 
        

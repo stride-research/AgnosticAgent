@@ -106,7 +106,10 @@ class FunctionsToToolkit():
     """
     tools_schemas = []
     def __init__(self, funcs: dict[str, Type[FunctionAsTool]]) -> None:
-        logger.debug(f"Provided functions for toolkit is: {funcs.keys()}")
+        if funcs:
+            logger.info(f"Provided functions for the toolkit (tool calling) is: {funcs.keys()}")
+        else:
+            logger.info(f"No functions for the toolkit have been provided (tool calling)")
         self.funcs = funcs
         self.tools = self.__set_up_tools()
     
