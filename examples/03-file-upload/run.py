@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import warnings
 
 from agentic_ai import AIAgent
 
 logger = logging.getLogger(__name__)
+
+warnings.warn("SUPPORT FOR FILES IS NOT YET ENABLED")
 
 files_path = [
                         #"examples/03-file-upload/utils/files/lecture_12_26022025.pdf",
