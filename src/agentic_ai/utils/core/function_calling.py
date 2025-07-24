@@ -104,6 +104,7 @@ class FunctionsToToolkit():
     """ 
     Note: no two functions can be called the same
     """
+    tools_schemas = []
     def __init__(self, funcs: dict[str, Type[FunctionAsTool]]) -> None:
         logger.debug(f"Provided functions for toolkit is: {funcs.keys()}")
         self.funcs = funcs
@@ -116,11 +117,13 @@ class FunctionsToToolkit():
         return tools
 
     def schematize(self):
-        tool_schemas = []
-        for name_tool, function_tool in self.tools.items():
-             tool_schemas.append(function_tool.schematize())
-        return tool_schemas
-
+        if not self.tools_schemas:
+            for name_tool, function_tool in self.tools.items():
+                self.tools_schemas.append(function_tool.schematize())
+            return self.tools_schemas
+        else:
+            return self.tools_schemas
+        
     def execute(self, func_name: str, **kwargs):
          return self.tools[func_name].execute(**kwargs)
     

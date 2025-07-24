@@ -18,7 +18,14 @@ from dotenv import load_dotenv
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-NUMBER_OF_ITERS = 0
+
+developer_instructions = """Given a dish, you need to first provide the ingredients required, then return the price of these ingredients.
+            You must use the provided tools.
+            - When a tool is relevant, **immediately call the tool without any conversational filler or "thinking out loud" text.**
+            - If you have successfully gathered all necessary information from tool calls to answer the user's request, provide the final answer directly.
+            - If something is not sufficiently clear, ask for clarifications.
+            - If you are needing a tool but you dont have access to it, you have to sttop and specify that you need it.
+            """
 
 class AIAgent:
     """ 
@@ -29,6 +36,8 @@ class AIAgent:
         - Bound interactions in tool cycle
         - Consumption usage logging
     """
+    number_of_interactions = 0
+    interactions_limit = 10 # Usage limit for recursive tool calling
     def __init__(self, 
                  agent_name: str,
                  model_name: str = "google/gemini-2.5-pro",
@@ -131,43 +140,44 @@ class AIAgent:
         Receives a response + message (context), observes if a tool call is requested, executes the given
         tool call, feeds the output back to the model, then recursively calls back this procedure. 
         If no tool call is needed it will return the response object.
-
-        To be done: parallel function call cycle support, upper bound for tool cycle (e.g., exit the recursive loop after max 10 iters)
         
         """
-        global NUMBER_OF_ITERS
-        messages.append(response.choices[0].message.dict()) # Adding to conversation context the tool call request 
-
-        NUMBER_OF_ITERS += 1 # debugging purposes
+        messages.append(response.choices[0].message.dict()) # Adding to conversation context the tool call request . NOTE: All this much context should probably not be included
+        #messages.append({"assistant": response.choices[0].message.content})
 
         tool_calls = response.choices[0].message.tool_calls
         logger.debug(f"Tool calls: {tool_calls}")
-        if tool_calls:
-            with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor: # If more than 4 tasks they will be enqueued
-                future_to_function_name = {}
-                for tool_call in tool_calls:
-                    function_name = tool_call.function.name
-                    function_args = json.loads(tool_call.function.arguments)
-                    logger.debug(f"Gotta call {function_name} with {function_args}")
-                    future = executor.submit(self.toolkit.execute, function_name, **function_args)
-                    future_to_function_name[future] = function_name
-                
-                for future in concurrent.futures.as_completed(future_to_function_name.keys()):
-                    function_name_completed = future_to_function_name[future] # Retrieve the function name
-                    data = future.result()
-                    logger.debug(f"Completed future: {function_name_completed} with data: {data} ")
+        if tool_calls and self.number_of_interactions < self.interactions_limit:
+            self.number_of_interactions += 1
+            with add_context_to_log(interacion_number=self.number_of_interactions):
+                with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor: # If more than 4 tasks they will be enqueued
+                    future_to_function_name = {}
+                    for tool_call in tool_calls:
+                        function_name = tool_call.function.name
+                        function_args = json.loads(tool_call.function.arguments)
+                        logger.debug(f"Gotta call {function_name} with {function_args}")
+                        future = executor.submit(self.toolkit.execute, function_name, **function_args)
+                        future_to_function_name[future] = function_name
+                    
+                    for future in concurrent.futures.as_completed(future_to_function_name.keys()):
+                        function_name_completed = future_to_function_name[future] # Retrieve the function name
+                        data = future.result()
+                        logger.debug(f"Completed future: {function_name_completed} with data: {data} ")
 
-                    messages.append( # Adding to conversation context the output of the function 
-                         {
-                             "role": "tool",
-                             "tool_call_id": tool_call.id,
-                             "name": function_name,
-                             "content": str(data)
-                         }
-                 )
-            response = self.__generate_completition(messages=messages)
-            self.__log_response(response)
-            return self.__complete_tool_calling_cycle(response=response, messages=messages)
+                        messages.append( # Adding to conversation context the output of the function 
+                            {
+                                "role": "tool",
+                                "tool_call_id": tool_call.id,
+                                "name": function_name,
+                                "content": str(data)
+                            }
+                    )
+                response = self.__generate_completition(
+                                                        messages=messages,
+                                                        tools=self.toolkit.schematize() if self.toolkit else None,
+                                                        )
+                self.__log_response(response)
+                return self.__complete_tool_calling_cycle(response=response, messages=messages)
         else:
             return response
 
@@ -229,8 +239,8 @@ class AIAgent:
         if self.sys_instructions:
             messages.append({"role": "developer", "content": self.sys_instructions})
         messages.append({"role": "user", "content":user_content})
-        messages.append({"role": "developer", "content":"If you think you need to call a function do so immediately in the given request. \
-                         If something is not sufficiently clear ask for clarifications."}) # Sometimes the model says it says it will try to call in the next request
+        
+        messages.append({"role": "developer", "content": developer_instructions})
         logger.debug(f"Message is: {messages}")
         
         response = self.__generate_completition(
@@ -241,11 +251,9 @@ class AIAgent:
         self.__log_response(response=response)
 
         logger.debug(f"Tool calls: {response.choices[0].message.tool_calls}")
-        #print(f"AAAA"*90)
         if response.choices[0].message.tool_calls:
-            #print(f"BBBBBBBBB"*30)
             response = self.__complete_tool_calling_cycle(response=response, messages=messages)
-            logger.debug(f"Total number of tools cycles: {NUMBER_OF_ITERS}")
+            logger.debug(f"Total number of tools cycles: {self.number_of_interactions}")
 
         processed_response =  self.__process_response(response)
         return processed_response
