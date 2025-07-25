@@ -12,6 +12,8 @@ import time
 import inspect
 import aiofiles
 import asyncio
+from typing import Optional, Any, Tuple, List, Dict, Type, Callable
+import concurrent.futures
 
 
 from openai import AsyncOpenAI
@@ -155,24 +157,8 @@ class AIAgent:
             }
         return params
 
-    async def __process_files(self, files: List[str]) -> List[Dict]:
-        """Processes local files into OpenRouter API format."""
-        processed_files = []
-        
-        async def process_single_file(file_path: str) -> Dict:
-            async with aiofiles.open(file_path, "rb") as f:
-                with add_context_to_log(file_name=file_path):
-                    file_size_bytes = os.path.getsize(file_path)
-                    file_size_mb = file_size_bytes / (1024 * 1024)
-                    logger.debug(f"File size is: {file_size_mb}MB")
-
-                    content = await f.read()
-                    base_64_string = base64.b64encode(content).decode("utf-8")
-                    
-                    # Detect file type and set appropriate content type
-                    file_extension = os.path.splitext(file_path)[1].lower()
-                    
-                    if file_extension in ['.png', '.jpg', '.jpeg', '.webp']:
+    def __extract_structure(self, file_extension:str, base_64_string: str, file_path:str) -> dict:
+        if file_extension in ['.png', '.jpg', '.jpeg', '.webp']:
                         # Handle images
                         content_type = 'image/png' if file_extension == '.png' else 'image/jpeg' if file_extension in ['.jpg', '.jpeg'] else 'image/webp'
                         structure = {
@@ -181,7 +167,7 @@ class AIAgent:
                                 "url": f"data:{content_type};base64,{base_64_string}"
                             }
                         }
-                    elif file_extension == '.pdf':
+        elif file_extension == '.pdf':
                         # Handle PDFs
                         structure = {
                             "type": "file",
@@ -190,7 +176,7 @@ class AIAgent:
                                 "file_data": f"data:application/pdf;base64,{base_64_string}"
                             }
                         }
-                    else:
+        else:
                         # Default to PDF format for unknown types
                         logger.warning(f"Unknown file type {file_extension}, treating as PDF")
                         structure = {
