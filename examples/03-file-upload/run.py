@@ -15,17 +15,17 @@ files_path = [
                         "examples/03-file-upload/utils/files/ny.png"
                   ]
 
-def run_example():
+async def run_example():
       LLMAgent = AIAgent(
                   agent_name="File ingestor",
                   sys_instructions="You have to provide concise explanations of the uploaded files",
                   model_name="google/gemini-2.0-flash-001",
             )
 
-      response = LLMAgent.prompt(message="Describe ALL the uploaded artifacts in less than 10 words for each", 
+      response = await LLMAgent.prompt(message="Describe ALL the uploaded artifacts in less than 10 words for each", 
                                            files_path=files_path)
       
       logger.info(f"Response is {response}")
 
 if __name__ == "__main__":
-    run_example()
+    asyncio.run(run_example())
