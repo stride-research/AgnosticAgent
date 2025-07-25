@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from enum import Enum
-from typing import Any, Type, Optional
+from typing import Any, Type, Optional, Callable
 
 class InteractionType(str, Enum):
       text = "text"
@@ -19,8 +19,9 @@ class Interaction(BaseModel):
       interaction_content: str
 
 class FunctionAsTool(BaseModel):
-      func: Any
+      func: Callable
       func_schema: Type[BaseModel]
+      is_coroutine: bool
 
 class LLMResponse(BaseModel):
     final_response: str

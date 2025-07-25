@@ -13,7 +13,7 @@ class OrchestratorToolkit(ToolkitBase):
             chunk_text: str = Field(..., description="The actual text in the chunk to be processed")
 
       @tool(schema=ProcessChunkSchema)
-      def process_chunk(chunk_name: str, chunk_text: str):
+      async def process_chunk(chunk_name: str, chunk_text: str):
             """Process a given text from a chunk"""
             chunkProcessor = AIAgent(
                   agent_name=chunk_name,
@@ -21,5 +21,5 @@ class OrchestratorToolkit(ToolkitBase):
                   response_schema=ChunkNotNamed,
                   tools=[]
                   )
-            response = chunkProcessor.prompt(message=f"This is the chunk of text: {chunk_text}")
+            response = await chunkProcessor.prompt(message=f"This is the chunk of text: {chunk_text}")
             return response

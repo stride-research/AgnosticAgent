@@ -28,10 +28,9 @@ class MathematicianToolkit(ToolkitBase):
         return {"result": x * y}
     
     def extract_tools_names(self):
-        return super().extract_tools_names(__class__)
+        return super().extract_tools_names()
         
 
-print(MathematicianToolkit().extract_tools_names())
     
 
 

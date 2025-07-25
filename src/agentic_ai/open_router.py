@@ -1,4 +1,4 @@
-from .utils.core.schemas import LLMResponse, Interaction, InteractionType, StageType, ExtraResponseSettings
+from .utils.core.schemas import LLMResponse, Interaction, InteractionType, StageType, ExtraResponseSettings, FunctionAsTool
 from .utils.core.function_calling import FunctionsToToolkit, tool_registry
 from agentic_ai.utils import add_context_to_log
 
@@ -55,7 +55,7 @@ class AIAgent:
                  model_name: str = "google/gemini-2.5-pro",
                  sys_instructions: Optional[str] = None, 
                  response_schema: Optional[Type[BaseModel]] = None,
-                 tools: Optional[List[Callable]] = [],
+                 tools: Optional[List[str]] = [],
                  extra_response_settings: Optional[Type[ExtraResponseSettings]] = ExtraResponseSettings(),
                  ) -> None:
         """
@@ -81,15 +81,14 @@ class AIAgent:
         self.sys_instructions = sys_instructions
         self.response_schema = response_schema
         self.settings = self.__set_up_settings(extra_response_settings)
-        self.tools = tools
-        tools_to_use = self.__set_up_toolkit(tools=tools) if tools else {}
-        self.toolkit = FunctionsToToolkit(tools_to_use)
+        self.tools_to_use = self.__set_up_toolkit(tools=tools) if tools else {}
+        self.toolkit = FunctionsToToolkit(self.tools_to_use)
 
     
     async def prompt(self,
                    message: str, 
                    files_path: Optional[List[str]] = None,
-                   n_of_attempts: Optional[int] = 1) -> LLMResponse:
+                   n_of_attempts: Optional[int] = 2) -> LLMResponse:
         """
         Sends a prompt to the LLM, handles multimodal content and function calling, and returns the final response.
         """
@@ -102,7 +101,7 @@ class AIAgent:
                         messages = []    
                         user_content = [{"type": "text", "text": message}]
                         if files_path:
-                            processed_files = self.__process_files(files_paths=files_path)
+                            processed_files = await self.__process_files(files_paths=files_path)
                             user_content.extend(processed_files)
                         
                         # Appending context (user message, developer instructions (fixed + user-provided))
@@ -121,7 +120,7 @@ class AIAgent:
 
                         # Calling tools if needed
                         if response.choices[0].message.tool_calls:
-                            response = self.__complete_tool_calling_cycle(response=response, messages=messages)
+                            response = await self.__complete_tool_calling_cycle(response=response, messages=messages)
 
                         # Loggin final metrics
                         self.__summary_log(starting_time=starting_time)
@@ -129,11 +128,12 @@ class AIAgent:
                         logger.debug(f"Final processed response is: {processed_response}")
                         return processed_response
             except Exception as e:
-                logger.error(f"For prompt attempt {attempt_number}, an exception was raised: {e}", exc_info=True)
+                #logger.error(f"For prompt attempt {attempt_number}, an exception was raised: {e}", exc_info=True)
+                raise e
                  
    
     
-    def __set_up_toolkit(self, tools: Optional[List[Callable]] = None):
+    def __set_up_toolkit(self, tools: Optional[List[Callable]] = None) -> dict[str, FunctionAsTool]:
         tools_to_use = {}
         for tool_name in tools:
             if tool_name in tool_registry.keys():
@@ -226,35 +226,72 @@ class AIAgent:
         if tool_calls and self.number_of_interactions < self.interactions_limit:
             self.number_of_interactions += 1
             with add_context_to_log(interacion_number=self.number_of_interactions):
-                with concurrent.futures.ProcessPoolExecutor() as executor: # If more than 4 tasks they will be enqueued
-                    future_to_call_info = {}
-                    for tool_call in tool_calls:
-                        function_name = tool_call.function.name
-                        function_args = json.loads(tool_call.function.arguments)
-                        logger.debug(f"Calling {function_name} with {function_args}")
+                sync_futures = []
+                async_tasks = []
+                tool_call_info_map = {}
+                for tool_call in tool_calls:
+                    function_name = tool_call.function.name
+                    function_args = json.loads(tool_call.function.arguments)
+                    logger.debug(f"Calling {function_name} with {function_args}")
 
-                        future = executor.submit(self.toolkit.execute, function_name, **function_args)
-                        future_to_call_info[future] = (function_name, tool_call.id)
+                    procedure = self.tools_to_use[function_name]
 
-                    
-                    for future in concurrent.futures.as_completed(future_to_call_info.keys()):
-                        function_name_completed, original_tool_call_id = future_to_call_info[future]
-                        data = future.result()
-                        logger.debug(f"(🔧) Completed future: {function_name_completed} with data: {data}")
-                        messages.append( # Adding to conversation context the output of the function 
+                    if procedure.is_coroutine:
+                        task = procedure.func(**function_args)
+                        async_tasks.append(task)
+                        tool_call_info_map[task] = (function_name, tool_call.id)
+                    else:
+                        with concurrent.futures.ProcessPoolExecutor() as executor:
+                            future = executor.submit(procedure.func, **function_args)
+                            sync_futures.append(future)
+                            tool_call_info_map[future] = (function_name, tool_call.id)
+                        
+                if async_tasks:
+                    completed_async_tasks = await asyncio.gather(*async_tasks, return_exceptions=True)
+                    for i, result in enumerate(completed_async_tasks):
+                        original_task = async_tasks[i] # Get the original task
+                        function_name_completed, original_tool_call_id = tool_call_info_map[original_task]
+                        
+                        if isinstance(result, Exception):
+                            logger.error(f"(🔧) Async tool call {function_name_completed} failed: {result}")
+                            content = f"Error: {str(result)}"
+                        else:
+                            logger.debug(f"(🔧) Completed async task: {function_name_completed} with data: {result}")
+                            content = str(result)
+                        
+                        messages.append(
                             {
                                 "role": "tool",
                                 "tool_call_id": original_tool_call_id,
                                 "name": function_name_completed,
-                                "content": str(data)
+                                "content": content
                             }
-                    )
+                        )
+                if sync_futures:
+                    for future in concurrent.futures.as_completed(sync_futures):
+                        function_name_completed, original_tool_call_id = tool_call_info_map[future]
+                        try:
+                            data = future.result()
+                            logger.debug(f"(🔧) Completed sync future: {function_name_completed} with data: {data}")
+                            content = str(data)
+                        except Exception as exc:
+                            logger.error(f"(🔧) Sync tool call {function_name_completed} failed: {exc}")
+                            content = f"Error: {str(exc)}"
+
+                        messages.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": original_tool_call_id,
+                                "name": function_name_completed,
+                                "content": content
+                            }
+                        ) 
                 response = await self.__generate_completition(
                                                         messages=messages,
                                                         tools=self.toolkit.schematize() if self.toolkit else None,
                                                         )
                 self.__log_response(response)
-                return self.__complete_tool_calling_cycle(response=response, messages=messages)
+                return await self.__complete_tool_calling_cycle(response=response, messages=messages)
         else:
             return response
  
@@ -287,7 +324,7 @@ class AIAgent:
     def __summary_log(self, starting_time: int):
         logger.info(f"(💰) Cumulative token usage: prompt={self.cumulative_token_usage['prompt_tokens']}, completion={self.cumulative_token_usage['completion_tokens']}, total={self.cumulative_token_usage['total_tokens']}")
         logger.info(f"(🛠️) {self.number_of_interactions} interactions occured in function calling")
-        if self.number_of_interactions == 0 and self.tools:
+        if self.number_of_interactions == 0 and self.tools_to_use:
              logger.warning(f"The LLM hasnt invoked any function/tool, even tho u passed some tool definitions")
         logger.info(f"(⏱️) Took {round(time.time() - starting_time,2)} seconds to fullfill the given prompt")
 
@@ -304,6 +341,8 @@ class AIAgent:
         
     def __process_response(self, response: ChatCompletion) -> LLMResponse:
         """Processes the final ChatCompletion object to extract relevant data and log interactions."""
+
+        logger.debug(f"Response is: {response}")
 
         prompt_response = response.choices[0].message.content
         

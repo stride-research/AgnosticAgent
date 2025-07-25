@@ -3,6 +3,7 @@ import logging
 
 from .schemas import Interaction, InteractionType, StageType, FunctionAsTool
 from pydantic import BaseModel
+import inspect
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,7 @@ class FunctionsToToolkit():
 tool_registry = {}
 def tool(schema):
     def decorator(func: callable):
-        tool_registry[func.__name__] = FunctionAsTool(func=func, func_schema=schema)
+        is_coroutine = inspect.iscoroutinefunction(func)
+        tool_registry[func.__name__] = FunctionAsTool(func=func, func_schema=schema, is_coroutine=is_coroutine)
         return func
     return decorator

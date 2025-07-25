@@ -28,7 +28,7 @@ async def run_example(text: str):
                         tools=[]
       )
 
-      languageDetector_response = LanguageDetectorAgent.prompt(message=f"What language is this in?: {summarizer_response.final_response}")
+      languageDetector_response = await LanguageDetectorAgent.prompt(message=f"What language is this in?: {summarizer_response.final_response}")
 
       logger.info(f"Language of summary is {languageDetector_response.parsed_response.language}")
       if languageDetector_response.parsed_response.language.strip().upper() != PREFERRED_LANGUAGE.strip().upper():
