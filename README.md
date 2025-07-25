@@ -13,6 +13,7 @@ Install dependencies with  `pip3 install -e `. Use the -e flag for development
 - [ ] Logger (total usage summary + agent parent lineage)
 - [ ] Memory mechanisms
 - [ ] Fault tolerance (retry prompt if raise exception falls under a set of predefined ones (e.g., json.decoder.JSONDecodeError, 500 errors))
+      - Keep track of each type of error occured in order to know how many time to reattempt prompt 
 - [ ] Prompt caching
 - [ ] Testing framework
 - [x] Add CI pipeline

@@ -53,7 +53,7 @@ class AIAgent:
 
     def __init__(self, 
                  agent_name: str,
-                 model_name: str = "anthropic/claude-sonnet-4", # "google/gemini-2.5-pro",
+                 model_name: str =  "google/gemini-2.5-flash",
                  sys_instructions: Optional[str] = None, 
                  response_schema: Optional[Type[BaseModel]] = None,
                  tools: Optional[List[str]] = [],
@@ -241,8 +241,7 @@ class AIAgent:
                         function_name = tool_call.function.name
                         function_args = json.loads(tool_call.function.arguments)
                         tool_call_id = tool_call.id
-                        logger.debug(f"Functions in toolkit looks like: {self.toolkit.funcs}")
-
+                        
                         procedure = self.toolkit.tools.get(function_name)
                         if not procedure:
                             logger.warning(f"Tool '{function_name}' requested by LLM but not found in toolkit.")
