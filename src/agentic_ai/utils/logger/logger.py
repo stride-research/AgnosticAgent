@@ -7,30 +7,69 @@ import sys
 from contextlib import contextmanager
 import contextvars
 import atexit
+import re
 
 from pythonjsonlogger import jsonlogger
 
 
 
-class ExcludeLargeStringsFilter(logging.Filter):
-    """
-    A logging filter to exclude records where specific fields are too long.
-    """
-    def __init__(self, max_length=1024, fields_to_check=None):
-        super().__init__()
-        self.max_length = max_length
-        # Default to checking the main log message if no fields are specified
-        self.fields_to_check = fields_to_check or ['message']
+import logging
+import base64
 
-    def filter(self, record):
-        for field in self.fields_to_check:
-            # Safely get the attribute from the log record
-            value = getattr(record, field, None)
-            if isinstance(value, str) and len(value) > self.max_length:
-                # If any field is too long, reject the record
-                return False 
-        # If all checked fields are within the length limit, accept the record
-        return True
+class FileUploadFilter(logging.Filter):
+    """
+    A custom logging filter to redact base64 file data from log records.
+
+    This filter inspects the log message for a pattern indicating an embedded file.
+    If the pattern is found, the base64 data is replaced with a placeholder
+    instead of suppressing the entire log record.
+    """
+
+    def __init__(self, pattern_to_find: str = "'type': 'file', 'file':"):
+        """
+        Initializes the filter.
+
+        Args:
+            pattern_to_find (str): The specific string pattern to search for in log messages
+                                   to identify records that need redaction.
+        """
+        super().__init__()
+        self.pattern_to_find = pattern_to_find
+        # This regex finds the "'file_data':" key and replaces its value.
+        self.redaction_regex = re.compile(r"('file_data':\s*')data:[^']+'")
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """
+        Checks a log record and redacts file data if present.
+
+        The record is modified in-place to replace the base64 content with a
+        placeholder.
+
+        Args:
+            record (logging.LogRecord): The log record to be checked and modified.
+
+        Returns:
+            bool: Always returns True, as records are modified, not suppressed.
+        """
+        # The log record's message might not be formatted yet, so we get the full string.
+        message = record.getMessage()
+
+        # Check if the record is one that we need to process
+        if self.pattern_to_find in message:
+            # Redact the base64 content using the regex
+            new_message = self.redaction_regex.sub(r"\1[...DATA REDACTED...]'", message)
+            
+            # If the message was changed, update the log record
+            if new_message != message:
+                record.msg = new_message
+                record.args = ()  # The message is now a complete string, so clear args.
+
+                # Clear any cached message to ensure the formatter uses the new msg
+                if hasattr(record, 'message'):
+                    delattr(record, 'message')
+
+        return True  # Always allow the record to be logged (either original or redacted)
+    
 class ContextAwareQueueHandler(logging.handlers.QueueHandler):
     """
     Injects dynamic fields before enqueing
@@ -64,7 +103,7 @@ class Logger():
         stream_handler = logging.StreamHandler(stream=sys.stdout)
         formatter = self.__bind_formatter()
         stream_handler.setFormatter(formatter)
-        log_filter = ExcludeLargeStringsFilter(max_length=2048, fields_to_check=["message"])
+        log_filter = FileUploadFilter()
         stream_handler.addFilter(log_filter)
         return stream_handler
     
