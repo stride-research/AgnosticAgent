@@ -10,10 +10,11 @@ from typing import Optional, Any, Tuple, List, Dict, Type, Callable
 import concurrent.futures
 import time
 import inspect
-import functools 
+import aiofiles
+import asyncio
 
 
-from openai import OpenAI
+from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletion
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -70,7 +71,7 @@ class AIAgent:
         if not api_key:
             raise ValueError("Couldn't find OpenRouter's API key in OPEN_ROUTER_API_KEY environment variable.")
         
-        self.client = OpenAI(
+        self.client = AsyncOpenAI(
             api_key=api_key,
             base_url="https://openrouter.ai/api/v1"
         )
@@ -84,7 +85,7 @@ class AIAgent:
         self.toolkit = FunctionsToToolkit(tools_to_use)
 
     
-    def prompt(self,
+    async def prompt(self,
                    message: str, 
                    files_path: Optional[List[str]] = None,
                    n_of_attempts: Optional[int] = 1) -> LLMResponse:
@@ -100,7 +101,7 @@ class AIAgent:
                         messages = []    
                         user_content = [{"type": "text", "text": message}]
                         if files_path:
-                            processed_files = self.__process_files(files_path)
+                            processed_files = self.__process_files(files_paths=files_path)
                             user_content.extend(processed_files)
                         
                         # Appending context (user message, developer instructions (fixed + user-provided))
@@ -109,7 +110,7 @@ class AIAgent:
                         messages.append({"role": "user", "content": user_content})
                         messages.append({"role": "developer", "content": developer_instructions})
                         
-                        response = self.__generate_completition(
+                        response = await self.__generate_completition(
                             messages=messages,
                             tools=self.toolkit.schematize() if self.toolkit else None,
                         )
@@ -186,27 +187,30 @@ class AIAgent:
                         }
         return structure
     
-    def __process_files(self, files: List[str]) -> List[Dict]:
+    async def __process_single_file(self, file_path: str) -> List[Dict]:
         """Processes local files into OpenRouter API format."""
-        processed_files = []
-        for file_path in files:
-            with open(file_path, "rb") as f:
+        async with aiofiles.open(file_path, "rb") as f:
                 with add_context_to_log(file_name=f.name):
                     file_size_bytes = os.path.getsize(file_path)
                     file_size_mb = file_size_bytes / (1024 * 1024)
                     logger.debug(f"File size is: {round(file_size_mb,2)} MB")
 
-                    base_64_string = base64.b64encode(f.read()).decode("utf-8")
+                    content = await f.read()
+                    base_64_string = base64.b64encode(content).decode("utf-8")
                     file_extension = os.path.splitext(file_path)[1].lower()
                     
                     structure = self.__extract_structure(file_extension=file_extension,
                                                          base_64_string=base_64_string,
                                                          file_path=file_path)
                     
-                    processed_files.append(structure)
+                    return structure
+                
+    async def __process_files(self, files_paths: List[str]):
+        tasks = [self.__process_single_file(file_path) for file_path in files_paths] 
+        processed_files = await asyncio.gather(*tasks)
         return processed_files
     
-    def __complete_tool_calling_cycle(self, response: ChatCompletion, messages: List[dict[str, str]]):
+    async def __complete_tool_calling_cycle(self, response: ChatCompletion, messages: List[dict[str, str]]):
         """
         
         Receives a response + message (context), observes if a tool call is requested, executes the given
@@ -244,7 +248,7 @@ class AIAgent:
                                 "content": str(data)
                             }
                     )
-                response = self.__generate_completition(
+                response = await self.__generate_completition(
                                                         messages=messages,
                                                         tools=self.toolkit.schematize() if self.toolkit else None,
                                                         )
@@ -253,8 +257,8 @@ class AIAgent:
         else:
             return response
  
-    def __generate_completition(self, messages, tools: Optional[Any] = None) -> ChatCompletion:
-        response = self.client.chat.completions.create(
+    async def __generate_completition(self, messages, tools: Optional[Any] = None) -> ChatCompletion:
+        response = await self.client.chat.completions.create(
                     model = self.model_name,
                     messages = messages,
                     tools = tools if tools else None,

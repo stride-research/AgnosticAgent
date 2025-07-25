@@ -44,7 +44,6 @@ def run_example(file_path: str):
             message=f"This is the text: {ORM_extracted_text}. Spawn subagents for a given section pass the given text and chunk name and wait for the processing of it."
       )
 
-
 if __name__ == "__main__":
       #path = "examples/05-orchestrator-worker/media/Untitled document (1).pdf"
       path = "examples/05-orchestrator-worker/media/Letter - Javier Domínguez Segura.pdf"
