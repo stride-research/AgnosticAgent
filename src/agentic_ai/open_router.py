@@ -1,5 +1,5 @@
-from .utils.core.schemas import LLMResponse, Interaction, InteractionType, StageType, ExtraResponseSettings, FunctionAsTool
-from .utils.core.function_calling import FunctionsToToolkit, tool_registry
+from .utils.core.schemas import LLMResponse, ExtraResponseSettings, ToolSpec
+from .utils.core.function_calling import FunctionalToolkit, tool_registry
 from agentic_ai.utils import add_context_to_log
 
 import json
@@ -12,7 +12,7 @@ import time
 import inspect
 import aiofiles
 import asyncio
-from typing import Optional, Any, Tuple, List, Dict, Type, Callable
+from typing import Optional, Any, Tuple, List, Dict, Type, Callable, Coroutine
 import concurrent.futures
 
 
@@ -25,12 +25,13 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-developer_instructions = """Given a dish, you need to first provide the ingredients required, then return the price of these ingredients.
+developer_instructions = """
             You must use the provided tools.
             - When a tool is relevant, **immediately call the tool without any conversational filler or "thinking out loud" text.**
             - If you have successfully gathered all necessary information from tool calls to answer the user's request, provide the final answer directly.
             - If something is not sufficiently clear, ask for clarifications.
             - If you are needing a tool but you dont have access to it, you have to sttop and specify that you need it.
+            - If there is any logical error in the request, express it, then stop.
             """
 
 class AIAgent:
@@ -52,7 +53,7 @@ class AIAgent:
 
     def __init__(self, 
                  agent_name: str,
-                 model_name: str = "google/gemini-2.5-pro",
+                 model_name: str = "anthropic/claude-sonnet-4", # "google/gemini-2.5-pro",
                  sys_instructions: Optional[str] = None, 
                  response_schema: Optional[Type[BaseModel]] = None,
                  tools: Optional[List[str]] = [],
@@ -75,65 +76,16 @@ class AIAgent:
         self.client = AsyncOpenAI(
             api_key=api_key,
             base_url="https://openrouter.ai/api/v1"
-        )
+        ) 
         self.agent_name = agent_name
         self.model_name = model_name
         self.sys_instructions = sys_instructions
         self.response_schema = response_schema
         self.settings = self.__set_up_settings(extra_response_settings)
         self.tools_to_use = self.__set_up_toolkit(tools=tools) if tools else {}
-        self.toolkit = FunctionsToToolkit(self.tools_to_use)
-
+        self.toolkit = FunctionalToolkit(self.tools_to_use)   
     
-    async def prompt(self,
-                   message: str, 
-                   files_path: Optional[List[str]] = None,
-                   n_of_attempts: Optional[int] = 2) -> LLMResponse:
-        """
-        Sends a prompt to the LLM, handles multimodal content and function calling, and returns the final response.
-        """
-        for attempt_number in range(1, n_of_attempts+1):
-            try: 
-                with add_context_to_log(agent_name=self.agent_name, model_name=self.model_name, prompt_attempt=attempt_number):
-                        starting_time = time.time()
-                        self.number_of_interactions = 0
-                        logger.info(f"Starting prompt. {"Files included" if files_path else "No files included."} with model {self.model_name}")
-                        messages = []    
-                        user_content = [{"type": "text", "text": message}]
-                        if files_path:
-                            processed_files = await self.__process_files(files_paths=files_path)
-                            user_content.extend(processed_files)
-                        
-                        # Appending context (user message, developer instructions (fixed + user-provided))
-                        if self.sys_instructions: 
-                            messages.append({"role": "developer", "content": self.sys_instructions})
-                        messages.append({"role": "user", "content": user_content})
-                        messages.append({"role": "developer", "content": developer_instructions})
-                        
-                        response = await self.__generate_completition(
-                            messages=messages,
-                            tools=self.toolkit.schematize() if self.toolkit else None,
-                        )
-
-                        # Logging initial response
-                        self.__log_response(response=response)
-
-                        # Calling tools if needed
-                        if response.choices[0].message.tool_calls:
-                            response = await self.__complete_tool_calling_cycle(response=response, messages=messages)
-
-                        # Loggin final metrics
-                        self.__summary_log(starting_time=starting_time)
-                        processed_response =  self.__process_response(response)
-                        logger.debug(f"Final processed response is: {processed_response}")
-                        return processed_response
-            except Exception as e:
-                #logger.error(f"For prompt attempt {attempt_number}, an exception was raised: {e}", exc_info=True)
-                raise e
-                 
-   
-    
-    def __set_up_toolkit(self, tools: Optional[List[Callable]] = None) -> dict[str, FunctionAsTool]:
+    def __set_up_toolkit(self, tools: Optional[List[Callable]] = None) -> dict[str, ToolSpec]:
         tools_to_use = {}
         for tool_name in tools:
             if tool_name in tool_registry.keys():
@@ -211,50 +163,24 @@ class AIAgent:
         processed_files = await asyncio.gather(*tasks)
         return processed_files
     
-    async def __complete_tool_calling_cycle(self, response: ChatCompletion, messages: List[dict[str, str]]):
-        """
+    async def extract_results_tools(
+        self,
+        messages: List[Dict[str, str]],
+        tool_call_info_map: Dict[Any, Tuple[str, int]],
+        sync_futures: List[concurrent.futures.Future],
+        async_tasks: List[Coroutine[Any, Any, Any]]
+    ) -> List[Dict[str, str]]:
         
-        Receives a response + message (context), observes if a tool call is requested, executes the given
-        tool call, feeds the output back to the model, then recursively calls back this procedure. 
-        If no tool call is needed it will return the response object.
-        
-        """
-        messages.append(response.choices[0].message.dict()) # Adding to conversation context the tool call request . NOTE: All this much context should probably not be included. To be researched
-
-        tool_calls = response.choices[0].message.tool_calls
-        logger.debug(f"(🔧) Tool calls ({len(tool_calls) if tool_calls else 0} tools requested): {tool_calls}")
-        if tool_calls and self.number_of_interactions < self.interactions_limit:
-            self.number_of_interactions += 1
-            with add_context_to_log(interacion_number=self.number_of_interactions):
-                sync_futures = []
-                async_tasks = []
-                tool_call_info_map = {}
-                for tool_call in tool_calls:
-                    function_name = tool_call.function.name
-                    function_args = json.loads(tool_call.function.arguments)
-                    logger.debug(f"Calling {function_name} with {function_args}")
-
-                    procedure = self.tools_to_use[function_name]
-
-                    if procedure.is_coroutine:
-                        task = procedure.func(**function_args)
-                        async_tasks.append(task)
-                        tool_call_info_map[task] = (function_name, tool_call.id)
-                    else:
-                        with concurrent.futures.ProcessPoolExecutor() as executor:
-                            future = executor.submit(procedure.func, **function_args)
-                            sync_futures.append(future)
-                            tool_call_info_map[future] = (function_name, tool_call.id)
-                        
-                if async_tasks:
-                    completed_async_tasks = await asyncio.gather(*async_tasks, return_exceptions=True)
-                    for i, result in enumerate(completed_async_tasks):
+        if async_tasks:
+                    completed_tasks = await asyncio.gather(*async_tasks, return_exceptions=True)
+                    for i, result in enumerate(completed_tasks):
                         original_task = async_tasks[i] # Get the original task
                         function_name_completed, original_tool_call_id = tool_call_info_map[original_task]
                         
                         if isinstance(result, Exception):
                             logger.error(f"(🔧) Async tool call {function_name_completed} failed: {result}")
                             content = f"Error: {str(result)}"
+                            raise result
                         else:
                             logger.debug(f"(🔧) Completed async task: {function_name_completed} with data: {result}")
                             content = str(result)
@@ -267,32 +193,89 @@ class AIAgent:
                                 "content": content
                             }
                         )
-                if sync_futures:
+        if sync_futures:
                     for future in concurrent.futures.as_completed(sync_futures):
                         function_name_completed, original_tool_call_id = tool_call_info_map[future]
                         try:
-                            data = future.result()
-                            logger.debug(f"(🔧) Completed sync future: {function_name_completed} with data: {data}")
-                            content = str(data)
-                        except Exception as exc:
-                            logger.error(f"(🔧) Sync tool call {function_name_completed} failed: {exc}")
-                            content = f"Error: {str(exc)}"
-
-                        messages.append(
-                            {
+                            output = future.result()
+                            logger.debug(f"(🔧) Completed sync future: {function_name_completed} with output: {output}")
+                            content = str(output)
+                            messages.append({
                                 "role": "tool",
                                 "tool_call_id": original_tool_call_id,
                                 "name": function_name_completed,
-                                "content": content
-                            }
-                        ) 
+                                "output": json.dumps(output) if isinstance(output, (dict, list)) else str(output),
+                            })
+                        except Exception as exc:
+                            logger.error(f"(🔧) Sync tool call {function_name_completed} failed: {exc}")
+                            raise exc
+                            content = f"Error: {str(exc)}"
+                            # TODO: Add message appending when there is an error 
+
+                      
+        return messages
+    
+    async def __complete_tool_calling_cycle(self, response: ChatCompletion, messages: List[dict[str, str]]):
+        """
+        
+        Receives a response + message (context), observes if a tool call is requested, executes the given
+        tool call, feeds the output back to the model, then recursively calls back this procedure. 
+        If no tool call is needed it will return the response object.
+        
+        """
+        messages.append(response.choices[0].message.dict()) # Adding to conversation context the tool call request . NOTE: All this much context should probably not be included. To be researched
+
+        tool_calls = response.choices[0].message.tool_calls
+        logger.debug(f"(🔧) Tool calls ({len(tool_calls) if tool_calls else 0} tools requested): {tool_calls}")
+
+        under_max_limit_of_interactions_reached = self.number_of_interactions < self.interactions_limit
+        if tool_calls and under_max_limit_of_interactions_reached:
+            self.number_of_interactions += 1
+
+            with add_context_to_log(interacion_number=self.number_of_interactions):
+                sync_futures = []
+                async_tasks = []
+                tool_call_info_map = {}
+                with concurrent.futures.ProcessPoolExecutor() as executor:
+                    for tool_call in tool_calls:
+                        function_name = tool_call.function.name
+                        function_args = json.loads(tool_call.function.arguments)
+                        tool_call_id = tool_call.id
+                        logger.debug(f"Functions in toolkit looks like: {self.toolkit.funcs}")
+
+                        procedure = self.toolkit.tools.get(function_name)
+                        if not procedure:
+                            logger.warning(f"Tool '{function_name}' requested by LLM but not found in toolkit.")
+                            messages.append({
+                                "tool_call_id": tool_call_id,
+                                "output": f"Error: Tool '{function_name}' not found.",
+                                "name": function_name
+                            })
+                            continue
+
+                        executable_method = procedure.get_executable()
+                        if procedure.is_coroutine:
+                            task = asyncio.create_task(executable_method(**function_args))
+                            async_tasks.append(task)
+                            tool_call_info_map[task] = (function_name, tool_call_id)
+                        else:
+                            future = executor.submit(executable_method, **function_args)
+                            sync_futures.append(future)
+                            tool_call_info_map[future] = (function_name, tool_call.id)
+                        
+                messages_with_tool_results = await self.extract_results_tools(messages=messages, 
+                                                                              tool_call_info_map=tool_call_info_map,
+                                                                              sync_futures=sync_futures, 
+                                                                              async_tasks=async_tasks)
                 response = await self.__generate_completition(
-                                                        messages=messages,
+                                                        messages=messages_with_tool_results,
                                                         tools=self.toolkit.schematize() if self.toolkit else None,
                                                         )
                 self.__log_response(response)
                 return await self.__complete_tool_calling_cycle(response=response, messages=messages)
         else:
+            if not under_max_limit_of_interactions_reached:
+                logger.warning(f"Exiting tool calling cycle prematurely after reaching {self.number_of_interactions} number of interactions")
             return response
  
     async def __generate_completition(self, messages, tools: Optional[Any] = None) -> ChatCompletion:
@@ -354,6 +337,53 @@ class AIAgent:
             final_response=prompt_response,
             parsed_response=parsed_data if self.response_schema else None
         )
+
+    async def prompt(self,
+                   message: str, 
+                   files_path: Optional[List[str]] = None,
+                   n_of_attempts: Optional[int] = 2) -> LLMResponse:
+        """
+        Sends a prompt to the LLM, handles multimodal content and function calling, and returns the final response.
+        """
+        for attempt_number in range(1, n_of_attempts+1):
+            try: 
+                with add_context_to_log(agent_name=self.agent_name, model_name=self.model_name, prompt_attempt=attempt_number):
+                        starting_time = time.time()
+                        self.number_of_interactions = 0
+                        logger.info(f"Starting prompt. {"Files included" if files_path else "No files included."} with model {self.model_name}")
+                        messages = []    
+                        user_content = [{"type": "text", "text": message}]
+                        if files_path:
+                            processed_files = await self.__process_files(files_paths=files_path)
+                            user_content.extend(processed_files)
+                        
+                        # Appending context (user message, developer instructions (fixed + user-provided))
+                        if self.sys_instructions: 
+                            messages.append({"role": "developer", "content": self.sys_instructions})
+                        messages.append({"role": "user", "content": user_content})
+                        messages.append({"role": "developer", "content": developer_instructions})
+                        
+                        response = await self.__generate_completition(
+                            messages=messages,
+                            tools=self.toolkit.schematize() if self.toolkit else None,
+                        )
+
+                        # Logging initial response
+                        self.__log_response(response=response)
+
+                        # Calling tools if needed
+                        if response.choices[0].message.tool_calls:
+                            response = await self.__complete_tool_calling_cycle(response=response, messages=messages)
+
+                        # Loggin final metrics
+                        self.__summary_log(starting_time=starting_time)
+                        processed_response =  self.__process_response(response)
+                        logger.debug(f"Final text response is: {processed_response.final_response}")
+                        logger.debug(f"Final parsed response is: {processed_response.parsed_response}")
+                        return processed_response
+            except Exception as e:
+                raise e
+                #logger.error(f"For prompt attempt {attempt_number}, an exception was raised: {e}", exc_info=True)
 
 
        

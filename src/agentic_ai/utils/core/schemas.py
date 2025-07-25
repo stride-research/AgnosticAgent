@@ -2,23 +2,7 @@ from pydantic import BaseModel
 from enum import Enum
 from typing import Any, Type, Optional, Callable
 
-class InteractionType(str, Enum):
-      text = "text"
-      thought = "thought"
-      function_call = "function_call"
-      function_response = "function_response"
-
-class StageType(str, Enum):
-      final = "final"
-      processing = "processing"
-
-class Interaction(BaseModel):
-      stage: StageType
-      owner: str
-      interaction_type: InteractionType
-      interaction_content: str
-
-class FunctionAsTool(BaseModel):
+class ToolSpec(BaseModel):
       func: Callable
       func_schema: Type[BaseModel]
       is_coroutine: bool
@@ -28,7 +12,7 @@ class LLMResponse(BaseModel):
     parsed_response: Optional[Any] = None
 
 class ExtraResponseSettings(BaseModel):
-    temperature: Optional[float] = 1.0
-    max_tokens: Optional[int] = 100_000
+    temperature: Optional[float] = 0.5
+    max_tokens: Optional[int] = 30_000
     tool_choice: Optional[str] = "auto" # or 'required'
 

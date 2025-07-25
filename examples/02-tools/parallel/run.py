@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 async def run_example():
       LLMAgent = AIAgent(
                   agent_name="WeatherGuy",
-                  model_name="google/gemini-2.0-flash-001",
+                  model_name="google/gemini-2.5-flash-lite",
                   tools=WeatherToolkit().extract_tools_names()
             )
 

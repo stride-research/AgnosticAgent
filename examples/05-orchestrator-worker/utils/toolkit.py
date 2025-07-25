@@ -15,6 +15,7 @@ class OrchestratorToolkit(ToolkitBase):
       @tool(schema=ProcessChunkSchema)
       async def process_chunk(chunk_name: str, chunk_text: str):
             """Process a given text from a chunk"""
+            logger.debug("Im inside 'proces_chunk'")
             chunkProcessor = AIAgent(
                   agent_name=chunk_name,
                   sys_instructions="Given some text return a summary of it and a single keyword",
@@ -22,4 +23,5 @@ class OrchestratorToolkit(ToolkitBase):
                   tools=[]
                   )
             response = await chunkProcessor.prompt(message=f"This is the chunk of text: {chunk_text}")
+            logger.debug("I can leave 'process_chunk' now")
             return response
