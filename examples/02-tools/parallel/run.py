@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from .utils import toolkit
+from .utils.toolkit import WeatherToolkit
 from agentic_ai import AIAgent
 
 
@@ -17,6 +17,7 @@ async def run_example():
       LLMAgent = AIAgent(
                   agent_name="WeatherGuy",
                   model_name="google/gemini-2.0-flash-001",
+                  tools=WeatherToolkit().extract_tools_names()
             )
 
       response = await LLMAgent.prompt(f"What is the weather like in San Francisco (temperature and humidity)?")

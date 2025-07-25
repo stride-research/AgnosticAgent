@@ -29,3 +29,20 @@ build-backend = "setuptools.build_meta"
 packages = ["agentic_ai"]
 package-dir = {"" = "src"} 
                            
+[tool.ruff]
+line-length = 88
+indent-width = 4
+
+[tool.ruff.lint]
+select = ["N", "ANN", "TID", "D", "F", "E"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = true
+line-ending = "lf"
+docstring-code-format = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "google" 
+                           

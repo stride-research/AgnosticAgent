@@ -6,13 +6,23 @@ Install dependencies with  `pip3 install -e `. Use the -e flag for development
 
 - [x] OpenRouter support
 - [ ] Documentation examples
+- [ ] Docs 
+- [x] Added file support
 - [ ] Add docstrings to codebase
-- [ ] Add linter 
+- [x] Add linter 
 - [x] Logger (usage summary)
 - [ ] Memory mechanisms
 - [ ] Fault tolerance
 - [ ] Prompt caching
 - [ ] Testing framework
+- [x] Add CI pipeline
+- [x] Advanced Extra Params for model (LLM) behavior
+- [ ] Ollama interface
 - [ ] Async support (Yousef working on this)
+- [ ] Benchmarking?
 - [ ] Apply this framework for IMPRESS use case (work on this [repo](https://github.com/stride-research/impress-agentic))
+
+
+# Conceptualized ideas
+- Fine-tuning models (e.g., Qwen) for tool calling
 

@@ -12,7 +12,25 @@ from pythonjsonlogger import jsonlogger
 
 
 
+class ExcludeLargeStringsFilter(logging.Filter):
+    """
+    A logging filter to exclude records where specific fields are too long.
+    """
+    def __init__(self, max_length=1024, fields_to_check=None):
+        super().__init__()
+        self.max_length = max_length
+        # Default to checking the main log message if no fields are specified
+        self.fields_to_check = fields_to_check or ['message']
 
+    def filter(self, record):
+        for field in self.fields_to_check:
+            # Safely get the attribute from the log record
+            value = getattr(record, field, None)
+            if isinstance(value, str) and len(value) > self.max_length:
+                # If any field is too long, reject the record
+                return False 
+        # If all checked fields are within the length limit, accept the record
+        return True
 class ContextAwareQueueHandler(logging.handlers.QueueHandler):
     """
     Injects dynamic fields before enqueing
@@ -46,6 +64,8 @@ class Logger():
         stream_handler = logging.StreamHandler(stream=sys.stdout)
         formatter = self.__bind_formatter()
         stream_handler.setFormatter(formatter)
+        log_filter = ExcludeLargeStringsFilter(max_length=2048, fields_to_check=["message"])
+        stream_handler.addFilter(log_filter)
         return stream_handler
     
     def __bind_formatter(self):

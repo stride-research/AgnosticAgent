@@ -1,5 +1,5 @@
 import asyncio
-from .utils import toolkit
+from .utils.toolkit import MathematicianToolkit
 from agentic_ai import AIAgent
 from agentic_ai.utils import ExtraResponseSettings
 
@@ -21,7 +21,8 @@ async def run_example():
                               agent_name="Mathematician",
                               model_name="google/gemini-2.5-pro",
                               sys_instructions="Do some basic arithmetic with the provided tools",
-                              response_schema=Schema
+                              response_schema=Schema,
+                              tools=MathematicianToolkit().extract_tools_names()
                         )
 
       message = f"Add {x} to {y}. Then multiply the result of this operation to {x}, then stop"

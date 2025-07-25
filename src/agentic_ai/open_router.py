@@ -1,4 +1,3 @@
-from .utils.core.function_calling import LLMProcessingLogs
 from .utils.core.schemas import LLMResponse, Interaction, InteractionType, StageType, ExtraResponseSettings
 from .utils.core.function_calling import FunctionsToToolkit, tool_registry
 from agentic_ai.utils import add_context_to_log
@@ -9,7 +8,9 @@ import logging
 import base64
 import asyncio
 import aiofiles
-from typing import Optional, Any, Tuple, List, Dict, Type
+import time
+import inspect
+from typing import Optional, Any, Tuple, List, Dict, Type, Callable
 
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletion
@@ -49,6 +50,7 @@ class AIAgent:
                  model_name: str = "google/gemini-2.5-pro",
                  sys_instructions: Optional[str] = None, 
                  response_schema: Optional[Type[BaseModel]] = None,
+                 tools: Optional[List[Callable]] = [],
                  extra_response_settings: Optional[Type[ExtraResponseSettings]] = ExtraResponseSettings(),
                  ) -> None:
         """
@@ -72,10 +74,20 @@ class AIAgent:
         self.agent_name = agent_name
         self.model_name = model_name
         self.sys_instructions = sys_instructions
-        self.LLMProcessingLogs = LLMProcessingLogs(agentName=self.agent_name)
         self.response_schema = response_schema
         self.settings = self.__set_up_settings(extra_response_settings)
-        self.toolkit = FunctionsToToolkit(tool_registry)
+        self.tools = tools
+        tools_to_use = self.__set_up_toolkit(tools=tools) if tools else {}
+        self.toolkit = FunctionsToToolkit(tools_to_use)
+    
+    def __set_up_toolkit(self, tools: Optional[List[Callable]] = None):
+        tools_to_use = {}
+        for tool_name in tools:
+            if tool_name in tool_registry.keys():
+                   tools_to_use[tool_name] = tool_registry[tool_name]
+            else:
+                  logger.warning(f"Tool '{tool_name}' was requested for agent '{self.agent_name}' but not found in global tool_registry.")
+        return tools_to_use
    
     def __set_up_settings(self, extra_response_settings: ExtraResponseSettings):
         params = extra_response_settings.model_dump(
@@ -137,66 +149,24 @@ class AIAgent:
                                 "file_data": f"data:application/pdf;base64,{base_64_string}"
                             }
                         }
-                    
-                    return structure
-        
-        # Process files concurrently
-        tasks = [process_single_file(file_path) for file_path in files]
-        processed_files = await asyncio.gather(*tasks)
-        return processed_files
+    def __summary_log(self, starting_time: float):
+        logger.info(f"Cumulative token usage: prompt={self.cumulative_token_usage['prompt_tokens']}, completion={self.cumulative_token_usage['completion_tokens']}, total={self.cumulative_token_usage['total_tokens']}")
+        logger.info(f"{self.number_of_interactions} interactions occured in function calling")
+        if self.number_of_interactions == 0 and self.tools:
+             logger.warning(f"The LLM hasnt invoked any function/tool, even tho u passed some tool definitions")
+        logger.info(f"Took {round(time.time() - starting_time,2)} seconds to fullfill the given prompt")
 
-    async def __complete_tool_calling_cycle(self, response: ChatCompletion, messages: List[dict[str, str]]):
-        """
-        
-        Receives a response + message (context), observes if a tool call is requested, executes the given
-        tool call, feeds the output back to the model, then recursively calls back this procedure. 
-        If no tool call is needed it will return the response object.
-        
-        """
-        messages.append(response.choices[0].message.dict()) # Adding to conversation context the tool call request . NOTE: All this much context should probably not be included
-
-        tool_calls = response.choices[0].message.tool_calls
-        logger.debug(f"Tool calls: {tool_calls}")
-        if tool_calls and self.number_of_interactions < self.interactions_limit:
-            self.number_of_interactions += 1
-            with add_context_to_log(interacion_number=self.number_of_interactions):
-                # Use asyncio.gather for concurrent execution of tool calls
-                async def execute_tool_call(tool_call):
-                    function_name = tool_call.function.name
-                    function_args = json.loads(tool_call.function.arguments)
-                    logger.debug(f"Gotta call {function_name} with {function_args}")
-                    
-                    # Execute the tool call
-                    data = await asyncio.to_thread(self.toolkit.execute, function_name, **function_args)
-                    logger.debug(f"Completed tool call: {function_name} with data: {data}")
-                    
-                    return {
-                        "tool_call_id": tool_call.id,
-                        "name": function_name,
-                        "content": str(data)
-                    }
-                
-                # Execute all tool calls concurrently
-                tool_results = await asyncio.gather(*[execute_tool_call(tc) for tc in tool_calls])
-                
-                # Add all results to messages
-                for result in tool_results:
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": result["tool_call_id"],
-                        "name": result["name"],
-                        "content": result["content"]
-                    })
-                
-                response = await self.__generate_completition(
-                    messages=messages,
-                    tools=self.toolkit.schematize() if self.toolkit else None,
+    async def __generate_completition(self, messages, tools: Optional[Any] = None) -> ChatCompletion:
+        logger.debug(f"Adding the following settings: {self.settings}")
+        logger.debug(f"Message is: {messages}")
+        response = await self.client.chat.completions.create(
+                    model = self.model_name,
+                    messages = messages,
+                    tools = tools if tools else None,
+                    **self.settings
                 )
-                self.__log_response(response)
-                return await self.__complete_tool_calling_cycle(response=response, messages=messages)
-        else:
-            return response
-
+        return response
+        
     def __process_response(self, response: ChatCompletion) -> LLMResponse:
         """Processes the final ChatCompletion object to extract relevant data and log interactions."""
 
@@ -210,48 +180,15 @@ class AIAgent:
             final_response=prompt_response,
             parsed_response=parsed_data if self.response_schema else None
         )
-
-    def __update_cumulative_token_usage(self, response: ChatCompletion):
-        usage = getattr(response, 'usage', None)
-        if usage:
-            self.cumulative_token_usage['prompt_tokens'] += getattr(usage, 'prompt_tokens', 0)
-            self.cumulative_token_usage['completion_tokens'] += getattr(usage, 'completion_tokens', 0)
-            self.cumulative_token_usage['total_tokens'] += getattr(usage, 'total_tokens', 0)
-
-    def __log_response(self, response: ChatCompletion):
-        logger.debug(f"Full response: {response}")
-        logger.debug(f"Text response: {response.choices[0].message.content}")
-        self.__update_cumulative_token_usage(response)
-        reasoning = getattr(response.choices[0].message, 'reasoning', None)
-        if reasoning:
-            print(f"Reasoning response: {reasoning}")
-        else:
-            print("No reasoning provided in the message.")
-
-    def __summary_log(self):
-        logger.info(f"Cumulative token usage: prompt={self.cumulative_token_usage['prompt_tokens']}, completion={self.cumulative_token_usage['completion_tokens']}, total={self.cumulative_token_usage['total_tokens']}")
-        logger.info(f"{self.number_of_interactions} interactions occured in function calling")
-        if self.number_of_interactions == 0 and tool_registry:
-             logger.warning(f"The LLM hasnt invoked any function/tool, even tho u passed some tool definitions")
-
-    async def __generate_completition(self, messages, tools: Optional[Any] = None) -> ChatCompletion:
-        logger.debug(f"Adding the following settings: {self.settings}")
-        logger.debug(f"Message is: {messages}")
-        response = await self.client.chat.completions.create(
-                    model = self.model_name,
-                    messages = messages,
-                    tools = tools if tools else None,
-                    **self.settings
-                )
-        return response
-        
+    
     async def prompt(self,
                    message: str, 
                    files_path: Optional[List[str]] = None) -> LLMResponse:
         """
         Sends a prompt to the LLM, handles multimodal content and function calling, and returns the final response.
         """
-        with add_context_to_log(model_name=self.model_name):
+        with add_context_to_log(agent_name=self.agent_name ,model_name=self.model_name):
+            starting_time = time.time()
             self.number_of_interactions = 0
             logger.info(f"Starting prompt. {"Files included" if files_path else "No files included."} with model {self.model_name}")
             messages = []    
@@ -274,7 +211,9 @@ class AIAgent:
             # Calling tools if needed
             if response.choices[0].message.tool_calls:
                 response = await self.__complete_tool_calling_cycle(response=response, messages=messages)
-            
-            processed_response = self.__process_response(response)
-            self.__summary_log()
+
+            # Loggin final metrics
+            self.__summary_log(starting_time=starting_time)
+            processed_response =  self.__process_response(response)
+            logger.debug(f"Final resposne is: {processed_response}")
             return processed_response

@@ -18,7 +18,8 @@ async def run_example():
     LLMAgent = AIAgent(
                 agent_name=AGENT_NAME,
                 sys_instructions="You are a player of the famous wordle game. Explain what you do at each step",
-                response_schema=Word
+                response_schema=Word,
+                tools=[]
             )
     message=f"Guess a {len(CORRECT_WORD)}-word letter. Topic of word is: {TOPIC}."
 
