@@ -29,4 +29,5 @@ class LLMResponse(BaseModel):
 class ExtraResponseSettings(BaseModel):
     temperature: Optional[float] = 1.0
     max_tokens: Optional[int] = 100_000
+    tool_choice: Optional[str] = "auto" # or 'required'
 

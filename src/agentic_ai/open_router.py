@@ -10,6 +10,7 @@ from typing import Optional, Any, Tuple, List, Dict, Type, Callable
 import concurrent.futures
 import time
 import inspect
+import functools 
 
 
 from openai import OpenAI
@@ -18,6 +19,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 
 load_dotenv()
+
 logger = logging.getLogger(__name__)
 
 
@@ -80,6 +82,54 @@ class AIAgent:
         self.tools = tools
         tools_to_use = self.__set_up_toolkit(tools=tools) if tools else {}
         self.toolkit = FunctionsToToolkit(tools_to_use)
+
+    
+    def prompt(self,
+                   message: str, 
+                   files_path: Optional[List[str]] = None,
+                   n_of_attempts: Optional[int] = 1) -> LLMResponse:
+        """
+        Sends a prompt to the LLM, handles multimodal content and function calling, and returns the final response.
+        """
+        for attempt_number in range(1, n_of_attempts+1):
+            try: 
+                with add_context_to_log(agent_name=self.agent_name, model_name=self.model_name, prompt_attempt=attempt_number):
+                        starting_time = time.time()
+                        self.number_of_interactions = 0
+                        logger.info(f"Starting prompt. {"Files included" if files_path else "No files included."} with model {self.model_name}")
+                        messages = []    
+                        user_content = [{"type": "text", "text": message}]
+                        if files_path:
+                            processed_files = self.__process_files(files_path)
+                            user_content.extend(processed_files)
+                        
+                        # Appending context (user message, developer instructions (fixed + user-provided))
+                        if self.sys_instructions: 
+                            messages.append({"role": "developer", "content": self.sys_instructions})
+                        messages.append({"role": "user", "content": user_content})
+                        messages.append({"role": "developer", "content": developer_instructions})
+                        
+                        response = self.__generate_completition(
+                            messages=messages,
+                            tools=self.toolkit.schematize() if self.toolkit else None,
+                        )
+
+                        # Logging initial response
+                        self.__log_response(response=response)
+
+                        # Calling tools if needed
+                        if response.choices[0].message.tool_calls:
+                            response = self.__complete_tool_calling_cycle(response=response, messages=messages)
+
+                        # Loggin final metrics
+                        self.__summary_log(starting_time=starting_time)
+                        processed_response =  self.__process_response(response)
+                        logger.debug(f"Final processed response is: {processed_response}")
+                        return processed_response
+            except Exception as e:
+                logger.error(f"For prompt attempt {attempt_number}, an exception was raised: {e}", exc_info=True)
+                 
+   
     
     def __set_up_toolkit(self, tools: Optional[List[Callable]] = None):
         tools_to_use = {}
@@ -167,29 +217,30 @@ class AIAgent:
         messages.append(response.choices[0].message.dict()) # Adding to conversation context the tool call request . NOTE: All this much context should probably not be included. To be researched
 
         tool_calls = response.choices[0].message.tool_calls
-        logger.debug(f"Tool calls: {tool_calls}")
+        logger.debug(f"(🔧) Tool calls ({len(tool_calls) if tool_calls else 0} tools requested): {tool_calls}")
         if tool_calls and self.number_of_interactions < self.interactions_limit:
             self.number_of_interactions += 1
             with add_context_to_log(interacion_number=self.number_of_interactions):
                 with concurrent.futures.ProcessPoolExecutor() as executor: # If more than 4 tasks they will be enqueued
-                    future_to_function_name = {}
+                    future_to_call_info = {}
                     for tool_call in tool_calls:
                         function_name = tool_call.function.name
                         function_args = json.loads(tool_call.function.arguments)
                         logger.debug(f"Calling {function_name} with {function_args}")
 
                         future = executor.submit(self.toolkit.execute, function_name, **function_args)
-                        future_to_function_name[future] = function_name
+                        future_to_call_info[future] = (function_name, tool_call.id)
+
                     
-                    for future in concurrent.futures.as_completed(future_to_function_name.keys()):
-                        function_name_completed = future_to_function_name[future] 
+                    for future in concurrent.futures.as_completed(future_to_call_info.keys()):
+                        function_name_completed, original_tool_call_id = future_to_call_info[future]
                         data = future.result()
-                        logger.debug(f"Completed future: {function_name_completed} with data: {data}")
+                        logger.debug(f"(🔧) Completed future: {function_name_completed} with data: {data}")
                         messages.append( # Adding to conversation context the output of the function 
                             {
                                 "role": "tool",
-                                "tool_call_id": tool_call.id,
-                                "name": function_name,
+                                "tool_call_id": original_tool_call_id,
+                                "name": function_name_completed,
                                 "content": str(data)
                             }
                     )
@@ -203,29 +254,6 @@ class AIAgent:
             return response
  
     def __generate_completition(self, messages, tools: Optional[Any] = None) -> ChatCompletion:
-        # Create a deep copy of messages to modify without affecting the original
-        loggable_messages = []
-        for message in messages:
-            if 'content' in message:
-                if isinstance(message['content'], list):
-                    new_content = []
-                    for item in message['content']:
-                        if isinstance(item, dict) and item.get('type') == 'file' and 'file' in item:
-                            # Replace 'file_data' with a placeholder
-                            modified_file_item = item.copy()
-                            if 'file_data' in modified_file_item['file']:
-                                modified_file_item['file'] = modified_file_item['file'].copy()
-                                modified_file_item['file']['file_data'] = '[BASE64_DATA_OMITTED]'
-                            new_content.append(modified_file_item)
-                        else:
-                            new_content.append(item)
-                    loggable_messages.append({**message, 'content': new_content})
-                else:
-                    loggable_messages.append(message)
-            else:
-                loggable_messages.append(message)
-
-        logger.debug(f"Message parameter for chat completion creation is: {loggable_messages}. Additional settings is: {self.settings}")
         response = self.client.chat.completions.create(
                     model = self.model_name,
                     messages = messages,
@@ -242,21 +270,21 @@ class AIAgent:
             self.cumulative_token_usage['total_tokens'] += getattr(usage, 'total_tokens', 0)
     
     def __log_response(self, response: ChatCompletion):
-        logger.debug(f"Full response: {response}")
-        logger.debug(f"Text response: {response.choices[0].message.content}")
+        logger.debug(f"(📦) Full response: {response}")
+        logger.debug(f"(✏️) Text response: {response.choices[0].message.content}")
         self.__update_cumulative_token_usage(response)
         reasoning = getattr(response.choices[0].message, 'reasoning', None)
         if reasoning:
-            print(f"Reasoning response: {reasoning}")
+            logger.debug(f"(🧠) Reasoning response: {reasoning}")
         else:
-            print("No reasoning provided in the message.")
+            logger.debug("(🧠) No reasoning provided in the message.")
     
     def __summary_log(self, starting_time: int):
-        logger.info(f"Cumulative token usage: prompt={self.cumulative_token_usage['prompt_tokens']}, completion={self.cumulative_token_usage['completion_tokens']}, total={self.cumulative_token_usage['total_tokens']}")
-        logger.info(f"{self.number_of_interactions} interactions occured in function calling")
+        logger.info(f"(💰) Cumulative token usage: prompt={self.cumulative_token_usage['prompt_tokens']}, completion={self.cumulative_token_usage['completion_tokens']}, total={self.cumulative_token_usage['total_tokens']}")
+        logger.info(f"(🛠️) {self.number_of_interactions} interactions occured in function calling")
         if self.number_of_interactions == 0 and self.tools:
              logger.warning(f"The LLM hasnt invoked any function/tool, even tho u passed some tool definitions")
-        logger.info(f"Took {round(time.time() - starting_time,2)} seconds to fullfill the given prompt")
+        logger.info(f"(⏱️) Took {round(time.time() - starting_time,2)} seconds to fullfill the given prompt")
 
     def __process_response(self, response: ChatCompletion) -> LLMResponse:
         """Processes the final ChatCompletion object to extract relevant data and log interactions."""
@@ -271,46 +299,6 @@ class AIAgent:
             final_response=prompt_response,
             parsed_response=parsed_data if self.response_schema else None
         )
-    
-    def prompt(self,
-                   message: str, 
-                   files_path: Optional[List[str]] = None) -> LLMResponse:
-        """
-        Sends a prompt to the LLM, handles multimodal content and function calling, and returns the final response.
-        """
-        with add_context_to_log(agent_name=self.agent_name ,model_name=self.model_name):
-            starting_time = time.time()
-            self.number_of_interactions = 0
-            logger.info(f"Starting prompt. {"Files included" if files_path else "No files included."} with model {self.model_name}")
-            messages = []    
-            user_content = [{"type": "text", "text": message}]
-            if files_path:
-                processed_files = self.__process_files(files_path)
-                user_content.extend(processed_files)
-            
-            # Appending context (user message, developer instructions (fixed + user-provided))
-            if self.sys_instructions: 
-                messages.append({"role": "developer", "content": self.sys_instructions})
-            messages.append({"role": "user", "content": user_content})
-            messages.append({"role": "developer", "content": developer_instructions})
-            
-            response = self.__generate_completition(
-                messages=messages,
-                tools=self.toolkit.schematize() if self.toolkit else None,
-            )
-
-            # Logging initial response
-            self.__log_response(response=response)
-
-            # Calling tools if needed
-            if response.choices[0].message.tool_calls:
-                response = self.__complete_tool_calling_cycle(response=response, messages=messages)
-
-            # Loggin final metrics
-            self.__summary_log(starting_time=starting_time)
-            processed_response =  self.__process_response(response)
-            logger.debug(f"Final resposne is: {processed_response}")
-            return processed_response
 
 
        

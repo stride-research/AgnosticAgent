@@ -5,12 +5,12 @@ Install dependencies with  `pip3 install -e `. Use the -e flag for development
 # Rich feature set
 
 - [x] OpenRouter support
-- [ ] Documentation examples
+- [x] Anthropic design patterns examples
 - [ ] Docs 
 - [x] Added file support
 - [ ] Add docstrings to codebase
 - [x] Add linter 
-- [x] Logger (usage summary)
+- [ ] Logger (total usage summary + agent parent lineage)
 - [ ] Memory mechanisms
 - [ ] Fault tolerance
 - [ ] Prompt caching

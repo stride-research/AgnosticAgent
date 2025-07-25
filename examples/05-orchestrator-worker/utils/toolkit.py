@@ -1,5 +1,5 @@
 from .schemas import ChunkNotNamed
-from agentic_ai.utils import tool
+from agentic_ai.utils import tool, add_context_to_log
 from agentic_ai import ToolkitBase, AIAgent
 
 import logging
@@ -7,15 +7,6 @@ import logging
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
-
-class ChunkProcessorToolkit(ToolkitBase):
-
-      def activity1():
-            ...
-      
-      def activity2():
-            ...
-
 class OrchestratorToolkit(ToolkitBase):
       class ProcessChunkSchema(BaseModel):
             chunk_name: str = Field(..., description="Name of the logical chunk")
@@ -23,7 +14,7 @@ class OrchestratorToolkit(ToolkitBase):
 
       @tool(schema=ProcessChunkSchema)
       def process_chunk(chunk_name: str, chunk_text: str):
-            """Spwans a new subagent. Process a given text from a chunk"""
+            """Process a given text from a chunk"""
             chunkProcessor = AIAgent(
                   agent_name=chunk_name,
                   sys_instructions="Given some text return a summary of it and a single keyword",
