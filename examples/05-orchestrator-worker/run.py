@@ -6,12 +6,13 @@ from agentic_ai.utils import ExtraResponseSettings
 
 from typing import List
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 
 model_to_use = "google/gemini-2.5-pro"
 
-def run_example(file_path: str):
+async def run_example(file_path: str):
       
       # ORM Agent
       ORMAgent = AIAgent(
@@ -22,7 +23,7 @@ def run_example(file_path: str):
                         tools=[]
                         )
       
-      ORMResponse = ORMAgent.prompt(message="Extract all the text from this file. RETURN THE TEXT IN HTML SYNTAXIS", files_path=[file_path])   
+      ORMResponse = await ORMAgent.prompt(message="Extract all the text from this file. RETURN THE TEXT IN HTML SYNTAXIS", files_path=[file_path])   
 
       ORM_extracted_text = ORMResponse.parsed_response.extracted_text
 
@@ -40,12 +41,12 @@ def run_example(file_path: str):
             tools=OrchestratorToolkit().extract_tools_names()            
       )
 
-      OrchestratorResponse = OrchestratorAgent.prompt(
+      OrchestratorResponse = await OrchestratorAgent.prompt(
             message=f"This is the text: {ORM_extracted_text}. Spawn subagents for a given section pass the given text and chunk name and wait for the processing of it."
       )
 
 if __name__ == "__main__":
       #path = "examples/05-orchestrator-worker/media/Untitled document (1).pdf"
       path = "examples/05-orchestrator-worker/media/Letter - Javier Domínguez Segura.pdf"
-      run_example(file_path=path)
+      asyncio.run(run_example(file_path=path))
 

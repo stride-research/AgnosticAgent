@@ -4,6 +4,7 @@ from agentic_ai import AIAgent
 from agentic_ai.utils import ExtraResponseSettings
 
 import logging
+import asyncio
 
 from pydantic import BaseModel
 

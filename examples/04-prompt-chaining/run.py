@@ -2,6 +2,7 @@ from .utils.schemas import LanguageSchema
 from agentic_ai import AIAgent
 
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +11,7 @@ PREFERRED_LANGUAGE = "English"
 
 # 1) Make summarry of some text, 2) If not in english, translate to spanish 
 
-def run_example(text: str):
+async def run_example(text: str):
 
       SumamarizerAgent = AIAgent(
                         agent_name="TextSummarizer",
@@ -18,7 +19,7 @@ def run_example(text: str):
                         tools=[]
       )
 
-      summarizer_response = SumamarizerAgent.prompt(message=f"Summarize this text in its original language: {text}")
+      summarizer_response = await SumamarizerAgent.prompt(message=f"Summarize this text in its original language: {text}")
 
       LanguageDetectorAgent = AIAgent( # This could have been done in parallel but we are going for sequential for simplicity
                         agent_name="LanguageDetectorAgent",
@@ -38,7 +39,7 @@ def run_example(text: str):
                               tools=[]
             )
 
-            summarizer_response = TranslatorAgent.prompt(message=f"Translatie this text: {text}")
+            summarizer_response = await TranslatorAgent.prompt(message=f"Translatie this text: {text}")
             logger.debug(f"Summarized output is: {summarizer_response}")
       else:
             logger.info(f"Text was IN {PREFERRED_LANGUAGE}")
@@ -54,7 +55,7 @@ if __name__ == "__main__":
 
                         Instead, he watched a single, determined beetle climbing its own Everest of sand. Each time a gust of wind sent it tumbling down, the tiny creature righted itself and began its ascent again. Mateo smiled. For sixty years, he had watched the sun set from this very spot, seeing empires of sand rise and fall with the wind. The world changed, people came and went, but the small, stubborn beetle, like the dunes themselves, always endured. It was a quiet lesson in resilience, offered freely by the golden landscape each evening.
                      """
-      
-      run_example(text=text_spanish)
-      run_example(text=text_english)
+      asyncio.run(run_example(text=text_spanish))
+      asyncio.run(run_example(text=text_english))
+     
 
