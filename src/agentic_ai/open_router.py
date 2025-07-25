@@ -203,7 +203,29 @@ class AIAgent:
             return response
  
     def __generate_completition(self, messages, tools: Optional[Any] = None) -> ChatCompletion:
-        logger.debug(f"Message parameter for chat completition creation is: {messages}. Additional settings is: {messages}")
+        # Create a deep copy of messages to modify without affecting the original
+        loggable_messages = []
+        for message in messages:
+            if 'content' in message:
+                if isinstance(message['content'], list):
+                    new_content = []
+                    for item in message['content']:
+                        if isinstance(item, dict) and item.get('type') == 'file' and 'file' in item:
+                            # Replace 'file_data' with a placeholder
+                            modified_file_item = item.copy()
+                            if 'file_data' in modified_file_item['file']:
+                                modified_file_item['file'] = modified_file_item['file'].copy()
+                                modified_file_item['file']['file_data'] = '[BASE64_DATA_OMITTED]'
+                            new_content.append(modified_file_item)
+                        else:
+                            new_content.append(item)
+                    loggable_messages.append({**message, 'content': new_content})
+                else:
+                    loggable_messages.append(message)
+            else:
+                loggable_messages.append(message)
+
+        logger.debug(f"Message parameter for chat completion creation is: {loggable_messages}. Additional settings is: {self.settings}")
         response = self.client.chat.completions.create(
                     model = self.model_name,
                     messages = messages,
