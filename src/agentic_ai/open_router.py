@@ -6,12 +6,14 @@ import json
 import os
 import logging
 import base64
-from typing import Optional, Any, Tuple, List, Dict, Type, Callable
-import concurrent.futures
+import asyncio
+import aiofiles
 import time
 import inspect
 import aiofiles
 import asyncio
+from typing import Optional, Any, Tuple, List, Dict, Type, Callable
+import concurrent.futures
 
 
 from openai import AsyncOpenAI
@@ -23,7 +25,6 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-
 developer_instructions = """Given a dish, you need to first provide the ingredients required, then return the price of these ingredients.
             You must use the provided tools.
             - When a tool is relevant, **immediately call the tool without any conversational filler or "thinking out loud" text.**
@@ -33,7 +34,7 @@ developer_instructions = """Given a dish, you need to first provide the ingredie
             """
 
 class AIAgent:
-    """ 
+    """
     An agent class adapted for the OpenAI SDK, compatible with OpenRouter.
     It handles system instructions, structured JSON output, and function calling.
 
@@ -290,6 +291,17 @@ class AIAgent:
              logger.warning(f"The LLM hasnt invoked any function/tool, even tho u passed some tool definitions")
         logger.info(f"(⏱️) Took {round(time.time() - starting_time,2)} seconds to fullfill the given prompt")
 
+    async def __generate_completition(self, messages, tools: Optional[Any] = None) -> ChatCompletion:
+        logger.debug(f"Adding the following settings: {self.settings}")
+        logger.debug(f"Message is: {messages}")
+        response = await self.client.chat.completions.create(
+                    model = self.model_name,
+                    messages = messages,
+                    tools = tools if tools else None,
+                    **self.settings
+                )
+        return response
+        
     def __process_response(self, response: ChatCompletion) -> LLMResponse:
         """Processes the final ChatCompletion object to extract relevant data and log interactions."""
 

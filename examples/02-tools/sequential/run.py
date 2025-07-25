@@ -1,3 +1,4 @@
+import asyncio
 from .utils.toolkit import MathematicianToolkit
 from agentic_ai import AIAgent
 from agentic_ai.utils import ExtraResponseSettings
@@ -15,7 +16,7 @@ y = 3
 class Schema(BaseModel):
       math_result: int | float
 
-def run_example():
+async def run_example():
       LLMAgent = AIAgent(
                               agent_name="Mathematician",
                               model_name="google/gemini-2.5-pro",
@@ -23,10 +24,9 @@ def run_example():
                               response_schema=Schema,
                               tools=MathematicianToolkit().extract_tools_names()
                         )
-    
+
       message = f"Add {x} to {y}. Then multiply the result of this operation to {x}, then stop"
-      response = LLMAgent.prompt(message=message)
+      response = await LLMAgent.prompt(message=message)
 
 if __name__ == "__main__":
-    run_example()
-
+    asyncio.run(run_example())

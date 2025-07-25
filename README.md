@@ -18,7 +18,7 @@ Install dependencies with  `pip3 install -e `. Use the -e flag for development
 - [x] Add CI pipeline
 - [x] Advanced Extra Params for model (LLM) behavior
 - [ ] Ollama interface
-- [ ] Async support (Yousef working on this)
+- [x] Async support 
 - [ ] Benchmarking?
 - [ ] Apply this framework for IMPRESS use case (work on this [repo](https://github.com/stride-research/impress-agentic))
 
