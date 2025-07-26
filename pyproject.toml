@@ -45,4 +45,9 @@ docstring-code-format = true
 
 [tool.ruff.lint.pydocstyle]
 convention = "google" 
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+
                            
+                          

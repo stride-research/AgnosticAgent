@@ -1,6 +1,6 @@
 from .utils.core.schemas import LLMResponse, ExtraResponseSettings, ToolSpec
 from .utils.core.function_calling import FunctionalToolkit, tool_registry
-from agentic_ai.utils import add_context_to_log
+from agentic_ai.utils import add_context_to_log, exception_controller_executor
 
 import json
 import os
@@ -53,7 +53,7 @@ class AIAgent:
 
     def __init__(self, 
                  agent_name: str,
-                 model_name: str =  "google/gemini-2.5-flash",
+                 model_name: str = "google/gemini-2.5-flash",
                  sys_instructions: Optional[str] = None, 
                  response_schema: Optional[Type[BaseModel]] = None,
                  tools: Optional[List[str]] = [],
@@ -339,50 +339,52 @@ class AIAgent:
 
     async def prompt(self,
                    message: str, 
-                   files_path: Optional[List[str]] = None,
-                   n_of_attempts: Optional[int] = 2) -> LLMResponse:
+                   files_path: Optional[List[str]] = None) -> LLMResponse:
         """
         Sends a prompt to the LLM, handles multimodal content and function calling, and returns the final response.
         """
-        for attempt_number in range(1, n_of_attempts+1):
-            try: 
-                with add_context_to_log(agent_name=self.agent_name, model_name=self.model_name, prompt_attempt=attempt_number):
-                        starting_time = time.time()
-                        self.number_of_interactions = 0
-                        logger.info(f"Starting prompt. {"Files included" if files_path else "No files included."} with model {self.model_name}")
-                        messages = []    
-                        user_content = [{"type": "text", "text": message}]
-                        if files_path:
-                            processed_files = await self.__process_files(files_paths=files_path)
-                            user_content.extend(processed_files)
-                        
-                        # Appending context (user message, developer instructions (fixed + user-provided))
-                        if self.sys_instructions: 
-                            messages.append({"role": "developer", "content": self.sys_instructions})
-                        messages.append({"role": "user", "content": user_content})
-                        messages.append({"role": "developer", "content": developer_instructions})
-                        
-                        response = await self.__generate_completition(
-                            messages=messages,
-                            tools=self.toolkit.schematize() if self.toolkit else None,
-                        )
+        async def get_model_response(
+                   message: str, 
+                   files_path: Optional[List[str]] = None) -> LLMResponse:
+            with add_context_to_log(agent_name=self.agent_name, model_name=self.model_name):
+                starting_time = time.time()
+                self.number_of_interactions = 0
+                logger.info(f"Starting prompt. {"Files included" if files_path else "No files included."} with model {self.model_name}")
+                messages = []    
+                user_content = [{"type": "text", "text": message}]
+                if files_path:
+                    processed_files = await self.__process_files(files_paths=files_path)
+                    user_content.extend(processed_files)
+                
+                # Appending context (user message, developer instructions (fixed + user-provided))
+                if self.sys_instructions: 
+                    messages.append({"role": "developer", "content": self.sys_instructions})
+                messages.append({"role": "user", "content": user_content})
+                messages.append({"role": "developer", "content": developer_instructions})
+                
+                response = await self.__generate_completition(
+                    messages=messages,
+                    tools=self.toolkit.schematize() if self.toolkit else None,
+                )
 
-                        # Logging initial response
-                        self.__log_response(response=response)
+                # Logging initial response
+                self.__log_response(response=response)
 
-                        # Calling tools if needed
-                        if response.choices[0].message.tool_calls:
-                            response = await self.__complete_tool_calling_cycle(response=response, messages=messages)
+                # Calling tools if needed
+                if response.choices[0].message.tool_calls:
+                    response = await self.__complete_tool_calling_cycle(response=response, messages=messages)
 
-                        # Loggin final metrics
-                        self.__summary_log(starting_time=starting_time)
-                        processed_response =  self.__process_response(response)
-                        logger.debug(f"Final text response is: {processed_response.final_response}")
-                        logger.debug(f"Final parsed response is: {processed_response.parsed_response}")
-                        return processed_response
-            except Exception as e:
-                raise e
-                #logger.error(f"For prompt attempt {attempt_number}, an exception was raised: {e}", exc_info=True)
+                # Loggin final metrics
+                self.__summary_log(starting_time=starting_time)
+                processed_response =  self.__process_response(response)
+                logger.debug(f"Final text response is: {processed_response.final_response}")
+                logger.debug(f"Final parsed response is: {processed_response.parsed_response}")
+                return processed_response
+            
+        output = await exception_controller_executor.execute_with_retries(func=get_model_response,
+                                                                          message=message,
+                                                                          files_path=files_path)
+        return output
 
 
        
