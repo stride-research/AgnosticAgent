@@ -2,6 +2,7 @@
 from typing import Type, List, Dict, Callable
 import logging 
 import asyncio
+import json
 
 from openai import APIStatusError
 from pydantic import BaseModel
@@ -146,7 +147,8 @@ class ExceptionRetryController:
 
 # key: error, value: numer of reattempts
 my_error_allowances = {
-    APIStatusError: 3 # For 5xx APIStatusErrors 
+    APIStatusError: 3, # For 5xx APIStatusErrors,
+    json.decoder.JSONDecodeError: 2 # For when the model could parse correctly
 }
 
 exception_controller_executor = ExceptionRetryController(my_error_allowances)
