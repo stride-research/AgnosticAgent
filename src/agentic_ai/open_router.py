@@ -53,7 +53,7 @@ class AIAgent:
 
     def __init__(self, 
                  agent_name: str,
-                 model_name: str = "anthropic/claude-sonnet-4", # "google/gemini-2.5-pro",
+                 model_name: str =  "google/gemini-2.5-flash",
                  sys_instructions: Optional[str] = None, 
                  response_schema: Optional[Type[BaseModel]] = None,
                  tools: Optional[List[str]] = [],
@@ -204,7 +204,7 @@ class AIAgent:
                                 "role": "tool",
                                 "tool_call_id": original_tool_call_id,
                                 "name": function_name_completed,
-                                "output": json.dumps(output) if isinstance(output, (dict, list)) else str(output),
+                                "content": json.dumps(output) if isinstance(output, (dict, list)) else str(output),
                             })
                         except Exception as exc:
                             logger.error(f"(🔧) Sync tool call {function_name_completed} failed: {exc}")
@@ -223,9 +223,25 @@ class AIAgent:
         If no tool call is needed it will return the response object.
         
         """
-        messages.append(response.choices[0].message.dict()) # Adding to conversation context the tool call request . NOTE: All this much context should probably not be included. To be researched
+        assistant_message_dict = response.choices[0].message.model_dump()
 
+        # OPTIONAL: Filter out unnecessary fields like 'reasoning' if present
+        if 'reasoning' in assistant_message_dict:
+            del assistant_message_dict['reasoning']
+        if 'reasoning_details' in assistant_message_dict:
+            del assistant_message_dict['reasoning_details']
+        if 'refusal' in assistant_message_dict:
+            del assistant_message_dict['refusal']
+        if 'annotations' in assistant_message_dict:
+            del assistant_message_dict['annotations']
+        if 'audio' in assistant_message_dict:
+            del assistant_message_dict['audio']
+
+
+        # Explicitly cast to ChatCompletionAssistantMessageParam for type safety
+        messages.append(assistant_message_dict)
         tool_calls = response.choices[0].message.tool_calls
+
         logger.debug(f"(🔧) Tool calls ({len(tool_calls) if tool_calls else 0} tools requested): {tool_calls}")
 
         under_max_limit_of_interactions_reached = self.number_of_interactions < self.interactions_limit
@@ -241,15 +257,15 @@ class AIAgent:
                         function_name = tool_call.function.name
                         function_args = json.loads(tool_call.function.arguments)
                         tool_call_id = tool_call.id
-                        logger.debug(f"Functions in toolkit looks like: {self.toolkit.funcs}")
-
+                        
                         procedure = self.toolkit.tools.get(function_name)
                         if not procedure:
                             logger.warning(f"Tool '{function_name}' requested by LLM but not found in toolkit.")
                             messages.append({
+                                "role": "tool",
                                 "tool_call_id": tool_call_id,
-                                "output": f"Error: Tool '{function_name}' not found.",
-                                "name": function_name
+                                "name": function_name,
+                                "content": f"Error: Tool '{function_name}' not found."
                             })
                             continue
 
