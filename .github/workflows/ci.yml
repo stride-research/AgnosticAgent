@@ -2,14 +2,16 @@ name: Full CI pipeline. Includes testing and linting. Stores testing report to G
 
 on: 
   workflow_dispatch:
+
   push: 
     paths:
-      - "src/*" # Only execute if changes in src have occured
+      - "src/**" # Only execute if changes in src have occured
+
   pull_request: 
     branches: 
       - main 
     paths:
-      - "src/*" # Only execute if changes in src have occured
+      - "src/**" # Only execute if changes in src have occured
 
 
 env: 
