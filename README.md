@@ -65,7 +65,7 @@ async def run_example():
 
 The framework's tool calling logic is based on the following flow:
 
-![Tool Calling Cycle](src/agentic_ai/docs/media/tool_calling_cycle.png)
+<img width="776" height="541" alt="image" src="https://github.com/user-attachments/assets/7d9e9787-c43f-4c90-8f7f-857d2fa30dda" />
 
 ## Roadmap
 
