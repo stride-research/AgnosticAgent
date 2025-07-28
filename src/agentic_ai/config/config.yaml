@@ -1,0 +1,7 @@
+
+AI_agent: 
+  default_model: google/gemini-2.5-flash
+  extra_response_settings:
+    temperature: 0.5
+    max_tokens: 100_000
+    tool_choice: "auto"

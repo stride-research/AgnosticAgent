@@ -1,6 +1,6 @@
-from .utils.core.schemas import LLMResponse, ExtraResponseSettings, ToolSpec
-from .utils.core.function_calling import FunctionalToolkit, tool_registry
-from agentic_ai.utils import add_context_to_log, exception_controller_executor
+from agentic_ai import CONFIG_DICT
+from agentic_ai.utils import add_context_to_log, exception_controller_executor, FunctionalToolkit, tool_registry
+from agentic_ai.utils.core.schemas import ExtraResponseSettings, LLMResponse, ToolSpec
 
 import json
 import os
@@ -53,7 +53,7 @@ class AIAgent:
 
     def __init__(self, 
                  agent_name: str,
-                 model_name: str = "google/gemini-2.5-flash",
+                 model_name: str = CONFIG_DICT["AI_agent"]["default_model"],
                  sys_instructions: Optional[str] = None, 
                  response_schema: Optional[Type[BaseModel]] = None,
                  tools: Optional[List[str]] = [],

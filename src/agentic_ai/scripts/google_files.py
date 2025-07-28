@@ -3,8 +3,10 @@ import os
 from google.genai import Client
 import logging
 import sys
+import warnings
 
 logger = logging.getLogger(__name__)
+warnings.warn("Model as AI agentic backend is outdated. Please use the newer OpenRouter adaptation")
 
 client = Client(api_key=os.getenv("GEMINI_API_KEY"))
 print(f"Passed arguments are: {sys.argv}")

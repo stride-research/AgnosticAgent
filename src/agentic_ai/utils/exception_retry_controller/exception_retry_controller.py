@@ -1,5 +1,4 @@
 """ Create some piece of code that runs x times given y exeception """
-from typing import Type, List, Dict, Callable
 import logging 
 import asyncio
 import json
@@ -7,42 +6,16 @@ import json
 from openai import APIStatusError
 from pydantic import BaseModel
 
-
 logger = logging.getLogger(__name__)
 
 class ErrorAllowance(BaseModel):
     n_of_occurrences: int = 0
     n_of_allowances: int = 0
 
-    def incremenet_occurence(self) -> None:
-        self.n_of_occurrences += 1
-    
-    def has_allowance_remaining(self):
-        return self.n_of_occurrences <= self.n_of_allowances
-
-
-from typing import Type, List, Dict, Callable
-import logging
-import asyncio
-import httpx
-
-from openai import APIStatusError
-from pydantic import BaseModel
-
-# Configure logging to see the output
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-logger = logging.getLogger(__name__)
-
-class ErrorAllowance(BaseModel):
-    n_of_occurrences: int = 0
-    n_of_allowances: int = 0
-
-    def increment_occurrence(self) -> None: # Corrected typo
+    def increment_occurrence(self) -> None: 
         self.n_of_occurrences += 1
 
     def has_allowance_remaining(self) -> bool:
-        # Reruns as many times as n_of_allowances. Calls func that + 1
         return self.n_of_occurrences <= self.n_of_allowances
 
 

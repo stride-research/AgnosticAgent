@@ -59,8 +59,6 @@ class RegisteredTool():
         else:
             return self._execute_sync
 
-
-
 class FunctionalToolkit:
     """
     Manages a collection of tools, providing methods to schematize and execute them.

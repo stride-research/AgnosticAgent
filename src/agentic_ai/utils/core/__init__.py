@@ -1,3 +1,2 @@
 
-from .function_calling import tool_registry, tool
-from .schemas import ExtraResponseSettings
+from .function_calling import tool_registry, tool, FunctionalToolkit
