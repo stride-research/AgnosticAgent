@@ -16,14 +16,19 @@ from pythonjsonlogger import jsonlogger
 import logging
 
 class FileUploadFilter(logging.Filter):
-    """
-    A custom logging filter to redact base64 file data from log records,
-    including both 'file' and 'image_url' types.
+    """A custom logging filter to redact base64 file data from log records.
+
+    This filter inspects the log message for a pattern indicating an embedded file.
+    If the pattern is found, the base64 data is replaced with a placeholder
+    instead of suppressing the entire log record.
     """
 
-    def __init__(self):
-        """
-        Initializes the filter with patterns for various base64 data types.
+    def __init__(self, pattern_to_find: str = "'type': 'file', 'file':"):
+        """Initializes the filter.
+
+        Args:
+            pattern_to_find (str): The specific string pattern to search for in log messages
+                                   to identify records that need redaction.
         """
         super().__init__()
         # Regex to find 'file_data': 'data:...' and replace the base64 part
@@ -33,8 +38,7 @@ class FileUploadFilter(logging.Filter):
 
 
     def filter(self, record: logging.LogRecord) -> bool:
-        """
-        Checks a log record and redacts base64 data if present.
+        """Checks a log record and redacts file data if present.
 
         The record is modified in-place to replace the base64 content with a
         placeholder.
@@ -66,8 +70,7 @@ class FileUploadFilter(logging.Filter):
 
     
 class ContextAwareQueueHandler(logging.handlers.QueueHandler):
-    """
-    Injects dynamic fields before enqueing
+    """Injects dynamic fields before enqueing
     """
     def prepare(self, record):
         context = LOG_CONTEXT.get()
@@ -118,8 +121,7 @@ class Logger():
             return formatter
     
     def shutdown(self):
-        """
-        Stops the QueueListener and flushes any remaining logs.
+        """Stops the QueueListener and flushes any remaining logs.
         """
         if self.listener:
             logging.info("Shutting down logging listener...")
@@ -133,8 +135,7 @@ LOG_CONTEXT = contextvars.ContextVar("log_context", default={})
 
 @contextmanager
 def add_context_to_log(**kwargs):
-    """
-    A context manager to add dynamic data to logs.
+    """A context manager to add dynamic data to logs.
     """
     current_context = LOG_CONTEXT.get()
     new_context = {**current_context, **kwargs}

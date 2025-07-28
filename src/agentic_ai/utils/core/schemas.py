@@ -1,5 +1,4 @@
 from pydantic import BaseModel
-from enum import Enum
 from typing import Any, Type, Optional, Callable
 
 class ToolSpec(BaseModel):
