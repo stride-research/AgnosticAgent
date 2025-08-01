@@ -156,3 +156,19 @@ def tool(schema):
         tool_registry[func.__name__] = ToolSpec(func=func, func_schema=schema, is_coroutine=is_coroutine)
         return func
     return decorator
+
+class ToolkitBase():
+    """Base class for toolkits. Provides utility to extract tool names from the class.
+    """
+    def extract_tools_names(self) -> List[str]:
+        """Extracts the names of all callable tools defined in the class.
+
+        Returns:
+            List[str]: List of tool names.
+        """
+        tool_names = []
+        for name, attr in self.__class__.__dict__.items():
+            if callable(attr) and inspect.isfunction(attr) and not name.startswith("_") and name != "extract_tools_names":
+               tool_names.append(name)
+        logger.debug(f"For {self.__class__} toolkit class, the following tools have been registered: {tool_names}")
+        return tool_names
