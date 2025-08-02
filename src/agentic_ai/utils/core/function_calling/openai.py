@@ -1,7 +1,7 @@
 from typing import List, Type, Any, Dict
 import logging
 
-from .schemas import ToolSpec
+from ..schemas import ToolSpec
 import inspect
 
 logger = logging.getLogger(__name__)

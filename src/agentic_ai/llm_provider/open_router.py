@@ -1,6 +1,6 @@
 from ..utils.core.schemas import LLMResponse, ExtraResponseSettings, ToolSpec
-from ..utils.core.function_calling import FunctionalToolkit, tool_registry
-from .base import LLMProvider
+from ..utils.core.function_calling.openai import FunctionalToolkit, tool_registry
+from .base_llm_provider import LLMProvider
 from agentic_ai.utils import add_context_to_log
 
 import json
@@ -67,6 +67,7 @@ class OpenRouter(LLMProvider):
             self.model_name = model_name
             self.sys_instructions = sys_instructions
             self.response_schema = response_schema
+            self.tools = tools
             self.settings = self._set_up_settings(extra_response_settings)
             self.tools_to_use = self._set_up_toolkit(tools=tools) if tools else {}
             self.toolkit = FunctionalToolkit(self.tools_to_use)   
@@ -333,18 +334,6 @@ class OpenRouter(LLMProvider):
                     logger.warning(f"Exiting tool calling cycle prematurely after reaching {self.number_of_interactions} number of interactions")
                 return response
         
-        def _update_cumulative_token_usage(self, response: ChatCompletion) -> None:
-            """Updates the cumulative token usage statistics from the model response.
-
-            Args:
-                response (ChatCompletion): The model response containing usage information.
-            """
-            usage = getattr(response, 'usage', None)
-            if usage:
-                self.cumulative_token_usage['prompt_tokens'] += getattr(usage, 'prompt_tokens', 0)
-                self.cumulative_token_usage['completion_tokens'] += getattr(usage, 'completion_tokens', 0)
-                self.cumulative_token_usage['total_tokens'] += getattr(usage, 'total_tokens', 0)
-        
         def _log_response(self, response: ChatCompletion) -> None:
             """Logs the full response, text response, reasoning, and updates token usage.
 
@@ -353,24 +342,13 @@ class OpenRouter(LLMProvider):
             """
             logger.debug(f"(📦) Full response: {response}")
             logger.debug(f"(✏️) Text response: {response.choices[0].message.content}")
-            self._update_cumulative_token_usage(response)
+            token_usage = getattr(response, 'usage', None)
+            self._update_cumulative_token_usage(token_usage)
             reasoning = getattr(response.choices[0].message, 'reasoning', None)
             if reasoning:
                 logger.debug(f"(🧠) Reasoning response: {reasoning}")
             else:
                 logger.debug("(🧠) No reasoning provided in the message.")
-        
-        def _summary_log(self, starting_time: int) -> None:
-            """Logs a summary of cumulative token usage, number of interactions, and elapsed time.
-
-            Args:
-                starting_time (int): The time when the prompt started.
-            """
-            logger.info(f"(💰) Cumulative token usage: prompt={self.cumulative_token_usage['prompt_tokens']}, completion={self.cumulative_token_usage['completion_tokens']}, total={self.cumulative_token_usage['total_tokens']}")
-            logger.info(f"(🛠️) {self.number_of_interactions} interactions occured in function calling")
-            if self.number_of_interactions == 0 and self.tools_to_use:
-                logger.warning("The LLM hasnt invoked any function/tool, even tho u passed some tool definitions")
-            logger.info(f"(⏱️) Took {round(time.time() - starting_time,2)} seconds to fullfill the given prompt")
 
         async def _generate_completition(self, messages: List[Dict], tools: Optional[Any] = None) -> ChatCompletion:
             """Generates a model completion using the provided messages and tools.
@@ -391,33 +369,10 @@ class OpenRouter(LLMProvider):
                         **self.settings
                     )
             return response
-            
-        def _process_response(self, response: ChatCompletion) -> LLMResponse:
-            """Processes the final ChatCompletion object to extract relevant data and log interactions.
-
-            Args:
-                response (ChatCompletion): The final model response.
-
-            Returns:
-                LLMResponse: The processed response containing the final and parsed responses.
-            """
-            logger.debug(f"Response is: {response}")
-
-            prompt_response = response.choices[0].message.content
-            
-            if self.response_schema:
-                json_dict = json.loads(prompt_response)
-                parsed_data = self.response_schema.model_validate(json_dict)
-            
-            return LLMResponse(
-                final_response=prompt_response,
-                parsed_response=parsed_data if self.response_schema else None
-            )
 
         async def prompt(self,
                     message: str, 
-                    files_path: Optional[List[str]] = None,
-                    n_of_attempts: Optional[int] = 2) -> LLMResponse:
+                    files_path: Optional[List[str]] = None) -> LLMResponse:
             """Sends a prompt to the LLM, handles multimodal content and function calling, and returns the final response.
 
             Args:
@@ -431,44 +386,38 @@ class OpenRouter(LLMProvider):
             Raises:
                 Exception: If an error occurs during processing.
             """
-            for attempt_number in range(1, n_of_attempts+1):
-                try: 
-                    with add_context_to_log(agent_name=self.agent_name, model_name=self.model_name, prompt_attempt=attempt_number):
-                            starting_time = time.time()
-                            self.number_of_interactions = 0
-                            logger.info(f"Starting prompt. {"Files included" if files_path else "No files included."} with model {self.model_name}")
-                            messages = []    
-                            user_content = [{"type": "text", "text": message}]
-                            if files_path:
-                                processed_files = await self._process_files(files_paths=files_path)
-                                user_content.extend(processed_files)
-                            
-                            # Appending context (user message, developer instructions (fixed + user-provided))
-                            if self.sys_instructions: 
-                                messages.append({"role": "developer", "content": self.sys_instructions})
-                            messages.append({"role": "user", "content": user_content})
-                            messages.append({"role": "developer", "content": DEV_INSTRUCTIONS})
-                            
-                            response = await self._generate_completition(
-                                messages=messages,
-                                tools=self.toolkit.schematize() if self.toolkit else None,
-                            )
+  
+            starting_time = time.time()
+            self.number_of_interactions = 0
+            logger.info(f"Starting prompt. {"Files included" if files_path else "No files included."} with model {self.model_name}")
+            messages = []    
+            user_content = [{"type": "text", "text": message}]
+            if files_path:
+                processed_files = await self._process_files(files_paths=files_path)
+                user_content.extend(processed_files)
+            
+            # Appending context (user message, developer instructions (fixed + user-provided))
+            if self.sys_instructions: 
+                messages.append({"role": "developer", "content": self.sys_instructions})
+            messages.append({"role": "user", "content": user_content})
+            messages.append({"role": "developer", "content": DEV_INSTRUCTIONS})
+            
+            response = await self._generate_completition(
+                messages=messages,
+                tools=self.toolkit.schematize() if self.toolkit else None,
+            )
 
-                            # Logging initial response
-                            self._log_response(response=response)
+            # Logging initial response
+            self._log_response(response=response)
 
-                            # Calling tools if needed
-                            if response.choices[0].message.tool_calls:
-                                response = await self._complete_tool_calling_cycle(response=response, messages=messages)
+            # Calling tools if needed
+            if response.choices[0].message.tool_calls:
+                response = await self._complete_tool_calling_cycle(response=response, messages=messages)
 
-                            # Loggin final metrics
-                            self._summary_log(starting_time=starting_time)
-                            processed_response =  self._process_response(response)
-                            logger.debug(f"Final text response is: {processed_response.final_response}")
-                            logger.debug(f"Final parsed response is: {processed_response.parsed_response}")
-                            return processed_response
-                except Exception as e:
-                    raise e
+            # Loggin final metrics
+            self._summary_log(starting_time=starting_time)
+            processed_response =  self._process_response(response.choices[0].message.content)
+            return processed_response
 
 
        

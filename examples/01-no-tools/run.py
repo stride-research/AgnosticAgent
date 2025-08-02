@@ -1,6 +1,6 @@
 import asyncio
 from .utils.schemas import Word
-from agentic_ai import AIAgent
+from agentic_ai import LLMAgent
 
 import logging
 
@@ -15,16 +15,18 @@ AGENT_NAME = "WordGuesser"
 
 
 async def run_example():
-    LLMAgent = AIAgent(
-                agent_name=AGENT_NAME,
-                sys_instructions="You are a player of the famous wordle game. Explain what you do at each step",
-                response_schema=Word,
-                tools=[]
-            )
+    agent = LLMAgent(
+        llm_backend="OpenRouter",
+        agent_name=AGENT_NAME,
+        sys_instructions="You are a player of the famous wordle game. Explain what you do at each step",
+        response_schema=Word,
+        tools=[]
+
+    )
     message=f"Guess a {len(CORRECT_WORD)}-word letter. Topic of word is: {TOPIC}."
 
     for i in range(NUMBER_OF_ITERS):
-        response = await LLMAgent.prompt(message=message)
+        response = await agent.prompt(message=message)
         selected_word = response.parsed_response.guessed_word
         print(f"Selected word is: {selected_word}")
         if selected_word.strip().upper() == CORRECT_WORD:

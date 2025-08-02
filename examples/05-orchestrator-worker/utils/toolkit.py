@@ -1,6 +1,6 @@
 from .schemas import ChunkNotNamed
 from agentic_ai.utils import tool, add_context_to_log
-from agentic_ai import ToolkitBase, AIAgent
+from agentic_ai import ToolkitBase, LLMAgent
 
 import logging
 
@@ -16,7 +16,8 @@ class OrchestratorToolkit(ToolkitBase):
       async def process_chunk(chunk_name: str, chunk_text: str):
             """Process a given text from a chunk"""
             logger.debug("Im inside 'proces_chunk'")
-            chunkProcessor = AIAgent(
+            chunkProcessor = LLMAgent(
+                  llm_backend="OpenRouter",
                   agent_name=chunk_name,
                   sys_instructions="Given some text return a summary of it and a single keyword",
                   response_schema=ChunkNotNamed,

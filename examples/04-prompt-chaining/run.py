@@ -1,5 +1,5 @@
 from .utils.schemas import LanguageSchema
-from agentic_ai import AIAgent
+from agentic_ai import LLMAgent
 
 import logging
 import asyncio
@@ -13,7 +13,8 @@ PREFERRED_LANGUAGE = "English"
 
 async def run_example(text: str):
 
-      SumamarizerAgent = AIAgent(
+      SumamarizerAgent = LLMAgent(
+                        llm_backend="OpenRouter",
                         agent_name="TextSummarizer",
                         sys_instructions="Summarize any text you receive",
                         tools=[]
@@ -21,7 +22,8 @@ async def run_example(text: str):
 
       summarizer_response = await SumamarizerAgent.prompt(message=f"Summarize this text in its original language: {text}")
 
-      LanguageDetectorAgent = AIAgent( # This could have been done in parallel but we are going for sequential for simplicity
+      LanguageDetectorAgent = LLMAgent( # This could have been done in parallel but we are going for sequential for simplicity
+                        llm_backend="OpenRouter",
                         agent_name="LanguageDetectorAgent",
                         sys_instructions="Detect the language of the text you receive",
                         response_schema=LanguageSchema,
@@ -33,7 +35,8 @@ async def run_example(text: str):
       logger.info(f"Language of summary is {languageDetector_response.parsed_response.language}")
       if languageDetector_response.parsed_response.language.strip().upper() != PREFERRED_LANGUAGE.strip().upper():
             logger.info(f"Text was NOT IN {PREFERRED_LANGUAGE}")
-            TranslatorAgent = AIAgent(
+            TranslatorAgent = LLMAgent(
+                              llm_backend="OpenRouter",
                               agent_name="TextTranslator",
                               sys_instructions=f"Translate any text to {PREFERRED_LANGUAGE}",
                               tools=[]

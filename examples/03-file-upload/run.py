@@ -1,4 +1,4 @@
-from agentic_ai import AIAgent
+from agentic_ai import LLMAgent
 
 import asyncio
 import logging
@@ -14,14 +14,15 @@ files_path = [
                   ]
 
 async def run_example():
-      LLMAgent = AIAgent(
+      agent = LLMAgent(
+                  llm_backend="OpenRouter",
                   agent_name="File ingestor",
                   sys_instructions="You have to provide concise explanations of the uploaded files",
                   model_name="google/gemini-2.0-flash-001",
                   tools=[]
             )
 
-      response = await LLMAgent.prompt(message="Describe ALL the uploaded artifacts in less than 10 words for each", 
+      response = await agent.prompt(message="Describe ALL the uploaded artifacts in less than 10 words for each", 
                                            files_path=files_path)
       
       logger.info(f"FINAL RESPONSE is {response}")
