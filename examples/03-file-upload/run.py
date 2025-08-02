@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 files_path = [
-                        "examples/03-file-upload/utils/files/1ST_LAB_SESSION (1).pdf", # Ollama can't handle PDFs
+                        #"examples/03-file-upload/utils/files/1ST_LAB_SESSION (1).pdf", # Ollama can't handle PDFs
                         "examples/03-file-upload/utils/files/ny.png"
                   ]
 
@@ -18,7 +18,7 @@ async def run_example():
                   llm_backend="ollama",
                   agent_name="File ingestor",
                   sys_instructions="You have to provide concise explanations of the uploaded files",
-                  model_name="gemma3n:latest",
+                  model_name="qwen3:8b",
                   tools=[]
             )
 
