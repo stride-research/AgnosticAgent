@@ -82,7 +82,7 @@ The framework's tool calling logic is based on the following flow:
 - [ ] Fault tolerance (retry on certain exceptions)
 - [ ] Prompt caching
 - [ ] Testing framework
-- [ ] Ollama interface
+- [x] Ollama interface
 - [ ] Benchmarking
 - [ ] IMPRESS use case integration
 - [ ] Support for DeepAgent
@@ -94,4 +94,3 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 ## Conceptualized Ideas
 - Fine-tuning models (e.g., Qwen) for tool calling
-
