@@ -19,9 +19,9 @@ class Schema(BaseModel):
 
 async def run_example():
       agent = LLMAgent(
-                        llm_backend="OpenRouter",
+                        llm_backend="ollama",
                         agent_name="Mathematician",
-                        model_name="google/gemini-2.5-pro",
+                        model_name="qwen3:8b",
                         sys_instructions="Do some basic arithmetic with the provided tools",
                         response_schema=Schema,
                         tools=MathematicianToolkit().extract_tools_names()

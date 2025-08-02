@@ -16,8 +16,9 @@ AGENT_NAME = "WordGuesser"
 
 async def run_example():
     agent = LLMAgent(
-        llm_backend="OpenRouter",
+        llm_backend="ollama",
         agent_name=AGENT_NAME,
+        model_name="qwen3:8b",
         sys_instructions="You are a player of the famous wordle game. Explain what you do at each step",
         response_schema=Word,
         tools=[]

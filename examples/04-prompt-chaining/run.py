@@ -9,13 +9,14 @@ logger = logging.getLogger(__name__)
 file_path = []
 PREFERRED_LANGUAGE = "English"
 
-# 1) Make summarry of some text, 2) If not in english, translate to spanish 
+# 1) Make summarry of some text, 2) If not in english, translate to spanish
 
 async def run_example(text: str):
 
       SumamarizerAgent = LLMAgent(
-                        llm_backend="OpenRouter",
+                        llm_backend="ollama",
                         agent_name="TextSummarizer",
+                        model_name="qwen3:8b",
                         sys_instructions="Summarize any text you receive",
                         tools=[]
       )
@@ -23,8 +24,9 @@ async def run_example(text: str):
       summarizer_response = await SumamarizerAgent.prompt(message=f"Summarize this text in its original language: {text}")
 
       LanguageDetectorAgent = LLMAgent( # This could have been done in parallel but we are going for sequential for simplicity
-                        llm_backend="OpenRouter",
+                        llm_backend="ollama",
                         agent_name="LanguageDetectorAgent",
+                        model_name="qwen3:8b",
                         sys_instructions="Detect the language of the text you receive",
                         response_schema=LanguageSchema,
                         tools=[]
@@ -36,8 +38,9 @@ async def run_example(text: str):
       if languageDetector_response.parsed_response.language.strip().upper() != PREFERRED_LANGUAGE.strip().upper():
             logger.info(f"Text was NOT IN {PREFERRED_LANGUAGE}")
             TranslatorAgent = LLMAgent(
-                              llm_backend="OpenRouter",
+                              llm_backend="ollama",
                               agent_name="TextTranslator",
+                              model_name="qwen3:8b",
                               sys_instructions=f"Translate any text to {PREFERRED_LANGUAGE}",
                               tools=[]
             )
@@ -60,5 +63,3 @@ if __name__ == "__main__":
                      """
       asyncio.run(run_example(text=text_spanish))
       asyncio.run(run_example(text=text_english))
-     
-

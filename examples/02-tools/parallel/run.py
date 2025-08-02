@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 
 async def run_example():
       agent = LLMAgent(
-                  llm_backend="OpenRouter",
+                  llm_backend="ollama",
                   agent_name="WeatherGuy",
-                  model_name="google/gemini-2.5-flash-lite",
+                  model_name="qwen3:8b",
                   tools=WeatherToolkit().extract_tools_names()
             )
 

@@ -10,28 +10,28 @@ import asyncio
 
 logger = logging.getLogger(__name__)
 
-model_to_use = "google/gemini-2.5-pro"
+model_to_use = "qwen3:8b"
 
 async def run_example(file_path: str):
-      
+
       # ORM Agent
       ORMAgent = LLMAgent(
-                        llm_backend="OpenRouter",
+                        llm_backend="ollama",
                         agent_name="ORM",
                         model_name=model_to_use,
                         sys_instructions="Given a file extract all its text in HTML syntaxis. Extract only the text. Forget about the images. IMPORTANT TO RESPOND IN HTML",
-                        response_schema=ORMResponseSchema, 
+                        response_schema=ORMResponseSchema,
                         tools=[]
                         )
-      
-      ORMResponse = await ORMAgent.prompt(message="Extract all the text from this file. RETURN THE TEXT IN HTML SYNTAXIS", files_path=[file_path])   
+
+      ORMResponse = await ORMAgent.prompt(message="Extract all the text from this file. RETURN THE TEXT IN HTML SYNTAXIS", files_path=[file_path])
 
       ORM_extracted_text = ORMResponse.parsed_response.extracted_text
 
-      # Orchestrator Agent 
+      # Orchestrator Agent
       agent_name = "Orchestrator"
       OrchestratorAgent = LLMAgent(
-            llm_backend="OpenRouter",
+            llm_backend="ollama",
             agent_name=agent_name,
             model_name=model_to_use,
             sys_instructions="Given some text input find sections of the text it can logically be chunked into. After that assign each chunk of text to a subagent in order for it to process it and wait until it returns the processed chunk.\
@@ -48,7 +48,8 @@ async def run_example(file_path: str):
       )
 
 if __name__ == "__main__":
-      path = "examples/05-orchestrator-worker/media/Untitled document (1).pdf"
+        # Ollama can't handle pdfs
+      #path = "examples/05-orchestrator-worker/media/Untitled document (1).pdf"
+      path = "examples/05-orchestrator-worker/media/ny.png"
       #path = "examples/05-orchestrator-worker/media/Letter - Javier Domínguez Segura.pdf"
       asyncio.run(run_example(file_path=path))
-
