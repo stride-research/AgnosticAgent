@@ -85,6 +85,7 @@ The framework's tool calling logic is based on the following flow:
 - [ ] Ollama interface
 - [ ] Benchmarking
 - [ ] IMPRESS use case integration
+- [ ] Support for DeepAgent
 
 
 ## License
