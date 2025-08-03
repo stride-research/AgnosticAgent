@@ -21,7 +21,9 @@ dependencies = [
 dev = [
     "black>=23.0.0",
     "ruff>=0.1.0",
+    "docformatter>=0.1.7",
     "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
     "tox>=4.0.0",
     "pre-commit>=3.0.0",
 ]
@@ -49,6 +51,9 @@ ignore = []
 
 [tool.ruff.lint.isort]
 known-first-party = ["agentic_ai_framework"]
+
+[tool.ruff.format]
+docstring-code-format = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
