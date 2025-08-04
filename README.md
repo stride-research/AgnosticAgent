@@ -61,6 +61,46 @@ async def run_example():
   python3 -m examples.01-no-tools.run
   ```
 
+## Testing
+
+The framework includes a comprehensive test suite that validates examples across multiple LLM backends.
+
+### Running Tests
+
+**Test all examples with all supported backends:**
+```bash
+python3 -m tests.run_examples
+```
+
+**Test specific backend:**
+```bash
+# Test with Ollama
+python3 -m tests.run_examples --backend ollama --model qwen3:8b
+
+# Test with OpenRouter
+python3 -m tests.run_examples --backend openrouter --model google/gemini-2.5-pro
+
+# Test with OpenAI
+python3 -m tests.run_examples --backend openai --model gpt-4o-mini
+```
+
+### Supported Backends
+
+- **ollama**: Local models (default: qwen3:8b)
+- **openrouter**: Cloud models via OpenRouter (default: google/gemini-2.5-pro)
+- **openai**: OpenAI models (requires OPENAI_API_KEY)
+
+### Test Coverage
+
+The test suite validates:
+- Basic agent functionality (no tools)
+- Tool calling (hybrid, parallel, sequential)
+- Prompt chaining workflows
+- Orchestrator-worker patterns
+- File processing capabilities
+- Structured output validation
+- Multi-backend compatibility
+
 ## Tool Calling Cycle
 
 The framework's tool calling logic is based on the following flow:
@@ -82,9 +122,10 @@ The framework's tool calling logic is based on the following flow:
 - [ ] Fault tolerance (retry on certain exceptions)
 - [ ] Prompt caching
 - [ ] Testing framework
-- [ ] Ollama interface
+- [x] Ollama interface
 - [ ] Benchmarking
 - [ ] IMPRESS use case integration
+- [ ] Support for DeepAgent
 
 
 ## License
@@ -93,4 +134,3 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 ## Conceptualized Ideas
 - Fine-tuning models (e.g., Qwen) for tool calling
-
