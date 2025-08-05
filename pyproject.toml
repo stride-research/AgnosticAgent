@@ -48,8 +48,11 @@ Homepage = "https://github.com/stride-research/AgnosticAgent"
 [tool.setuptools]
 include-package-data = true
 
+[tool.setuptools.packages.find]
+where = ["src"] 
+
 [tool.setuptools.package-data]
-agnostic_agent = ["config.yaml", "examples/**", "README.md"]
+agnostic_agent = ["config/config.yaml"]
 
 [tool.black]
 line-length = 88
