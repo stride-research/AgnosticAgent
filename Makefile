@@ -18,3 +18,8 @@ test:
 
 check:
 	. .venv/bin/activate && tox -e lint,format
+
+build:
+	python3 -m build
+	tar -xvf dist/your_project_name-0.1.0.tar.gz
+
