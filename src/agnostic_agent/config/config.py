@@ -2,6 +2,8 @@
 from typing import Dict, Any
 import os
 import logging
+from pathlib import Path
+
 
 import yaml
 
@@ -16,5 +18,6 @@ def get_config(path: str) -> Dict[str, Any]:
             data = yaml.safe_load(f)
             return data
 
-path = "src/agnostic_agent/config/config.yaml"
-CONFIG_DICT = get_config(path=path)
+current_dir = Path(__file__).parent
+config_path = current_dir / "config.yaml"
+CONFIG_DICT = get_config(path=str(config_path))
