@@ -5,13 +5,15 @@ from .utils.toolkit import OrchestratorToolkit
 from agentic_ai import LLMAgent
 from agentic_ai.utils import ExtraResponseSettings
 
+from ..config import inline_args
+
 from typing import List
 import logging
 import asyncio
 
 logger = logging.getLogger(__name__)
 
-async def run_example(file_path: str, backend="ollama", model="qwen3:8b"):
+async def run_example(file_path: str, backend: str, model: str):
 
       # ORM Agent
       ORMAgent = LLMAgent(
@@ -47,13 +49,9 @@ async def run_example(file_path: str, backend="ollama", model="qwen3:8b"):
       )
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--backend", default="ollama", choices=["ollama", "openrouter", "openai"])
-    parser.add_argument("--model", default="qwen3:8b")
-    args = parser.parse_args()
     
     # Ollama can't handle pdfs
     #path = "examples/05-orchestrator-worker/media/Untitled document (1).pdf"
     path = "examples/05-orchestrator-worker/media/ny.png"
     #path = "examples/05-orchestrator-worker/media/Letter - Javier Domínguez Segura.pdf"
-    asyncio.run(run_example(file_path=path, backend=args.backend, model=args.model))
+    asyncio.run(run_example(file_path=path, backend=inline_args.backend, model=inline_args.model))

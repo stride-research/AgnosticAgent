@@ -1,6 +1,6 @@
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import os
-import argparse
+from .config import inline_args
 
 # Test configurations for different backends
 TEST_CONFIGURATIONS = [
@@ -65,22 +65,14 @@ def run_tests():
     return results
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run examples with different LLM backends")
-    parser.add_argument("--backend", choices=["ollama", "openrouter", "openai"], 
-                       help="Specific backend to test (default: all)")
-    parser.add_argument("--model", type=str, 
-                       help="Specific model to test (default: backend defaults)")
-    
-    args = parser.parse_args()
-    
-    if args.backend:
+    if inline_args.backend:
         # Run specific backend
-        config = {"backend": args.backend, "model": args.model}
-        if args.backend == "ollama" and not args.model:
+        config = {"backend": inline_args.backend, "model": inline_args.model}
+        if inline_args.backend == "ollama" and not inline_args.model:
             config["model"] = "qwen3:8b"
-        elif args.backend == "openrouter" and not args.model:
+        elif inline_args.backend == "openrouter" and not inline_args.model:
             config["model"] = "google/gemini-2.5-pro"
-        elif args.backend == "openai" and not args.model:
+        elif inline_args.backend == "openai" and not inline_args.model:
             config["model"] = "gpt-4o-mini"
         
         TEST_CONFIGURATIONS = [config]

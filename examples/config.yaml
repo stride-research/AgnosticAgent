@@ -1,0 +1,2 @@
+DEFAULT_BACKEND: openrouter
+DEFAULT_MODEL: google/gemini-2.5-flash

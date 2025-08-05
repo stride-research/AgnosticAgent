@@ -6,6 +6,8 @@ import logging
 
 from .utils.toolkit import WeatherToolkit
 from agentic_ai import LLMAgent
+from ...config import inline_args
+
 
 
 """Temperature example """
@@ -14,7 +16,7 @@ from agentic_ai import LLMAgent
 logger = logging.getLogger(__name__)
 
 
-async def run_example(backend="ollama", model="qwen3:8b"):
+async def run_example(backend:str, model:str):
       agent = LLMAgent(
                   llm_backend=backend,
                   agent_name="WeatherGuy",
@@ -25,9 +27,5 @@ async def run_example(backend="ollama", model="qwen3:8b"):
       response = await agent.prompt(f"What is the weather like in San Francisco (temperature and humidity)?")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--backend", default="ollama", choices=["ollama", "openrouter", "openai"])
-    parser.add_argument("--model", default="qwen3:8b")
-    args = parser.parse_args()
-    
-    asyncio.run(run_example(backend=args.backend, model=args.model))
+    asyncio.run(run_example(backend=inline_args.backend, 
+                            model=inline_args.model))

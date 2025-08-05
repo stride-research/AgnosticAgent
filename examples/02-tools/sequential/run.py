@@ -1,4 +1,3 @@
-import asyncio
 import argparse
 from .utils.toolkit import MathematicianToolkit
 from agentic_ai import LLMAgent
@@ -6,6 +5,9 @@ from agentic_ai.utils import ExtraResponseSettings
 
 import logging
 import asyncio
+
+from ...config import inline_args
+
 
 from pydantic import BaseModel
 
@@ -18,7 +20,7 @@ y = 3
 class Schema(BaseModel):
       math_result: int | float
 
-async def run_example(backend="ollama", model="qwen3:8b"):
+async def run_example(backend:str, model:str):
       agent = LLMAgent(
                         llm_backend=backend,
                         agent_name="Mathematician",
@@ -32,9 +34,5 @@ async def run_example(backend="ollama", model="qwen3:8b"):
       response = await agent.prompt(message=message)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--backend", default="ollama", choices=["ollama", "openrouter", "openai"])
-    parser.add_argument("--model", default="qwen3:8b")
-    args = parser.parse_args()
-    
-    asyncio.run(run_example(backend=args.backend, model=args.model))
+    asyncio.run(run_example(backend=inline_args.backend, 
+                            model=inline_args.model))

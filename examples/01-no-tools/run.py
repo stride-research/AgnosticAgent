@@ -2,10 +2,9 @@ import asyncio
 import argparse
 from .utils.schemas import Word
 from agentic_ai import LLMAgent
+from ..config import inline_args
 
 import logging
-
-
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +14,7 @@ NUMBER_OF_ITERS = 2
 AGENT_NAME = "WordGuesser"
 
 
-async def run_example(backend="ollama", model="qwen3:8b"):
+async def run_example(backend:str, model:str):
     agent = LLMAgent(
         llm_backend=backend,
         agent_name=AGENT_NAME,
@@ -23,7 +22,6 @@ async def run_example(backend="ollama", model="qwen3:8b"):
         sys_instructions="You are a player of the famous wordle game. Explain what you do at each step",
         response_schema=Word,
         tools=[]
-
     )
     message=f"Guess a {len(CORRECT_WORD)}-word letter. Topic of word is: {TOPIC}."
 
@@ -38,9 +36,5 @@ async def run_example(backend="ollama", model="qwen3:8b"):
             print("Word choice was incorrect")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--backend", default="ollama", choices=["ollama", "openrouter", "openai"])
-    parser.add_argument("--model", default="qwen3:8b")
-    args = parser.parse_args()
-    
-    asyncio.run(run_example(backend=args.backend, model=args.model))
+    asyncio.run(run_example(backend=inline_args.backend, 
+                            model=inline_args.model))

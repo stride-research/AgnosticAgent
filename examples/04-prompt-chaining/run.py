@@ -1,9 +1,11 @@
-import argparse
 from .utils.schemas import LanguageSchema
 from agentic_ai import LLMAgent
 
 import logging
 import asyncio
+
+from ..config import inline_args
+
 
 logger = logging.getLogger(__name__)
 
@@ -11,9 +13,7 @@ file_path = []
 PREFERRED_LANGUAGE = "English"
 
 # 1) Make summarry of some text, 2) If not in english, translate to spanish
-
-async def run_example(text: str, backend="ollama", model="qwen3:8b"):
-
+async def run_example(text: str, backend: str, model:str):
       SumamarizerAgent = LLMAgent(
                         llm_backend=backend,
                         agent_name="TextSummarizer",
@@ -53,11 +53,6 @@ async def run_example(text: str, backend="ollama", model="qwen3:8b"):
       logger.debug(f" Outline is: {summarizer_response}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--backend", default="ollama", choices=["ollama", "openrouter", "openai"])
-    parser.add_argument("--model", default="qwen3:8b")
-    args = parser.parse_args()
-    
     text_spanish = """
             El viejo faro de Maspalomas parpadeaba, como un ojo cansado vigilando las dunas. Abajo, en la orilla, una niña llamada Sofía encontró una caracola que no era como las demás. Era lisa y de un azul tan profundo como el mar al atardecer.
 
@@ -67,5 +62,5 @@ if __name__ == "__main__":
 
                         Instead, he watched a single, determined beetle climbing its own Everest of sand. Each time a gust of wind sent it tumbling down, the tiny creature righted itself and began its ascent again. Mateo smiled. For sixty years, he had watched the sun set from this very spot, seeing empires of sand rise and fall with the wind. The world changed, people came and went, but the small, stubborn beetle, like the dunes themselves, always endured. It was a quiet lesson in resilience, offered freely by the golden landscape each evening.
                      """
-    asyncio.run(run_example(text=text_spanish, backend=args.backend, model=args.model))
-    asyncio.run(run_example(text=text_english, backend=args.backend, model=args.model))
+    asyncio.run(run_example(text=text_spanish, backend=inline_args.backend, model=inline_args.model))
+    asyncio.run(run_example(text=text_english, backend=inline_args.backend, model=inline_args.model))

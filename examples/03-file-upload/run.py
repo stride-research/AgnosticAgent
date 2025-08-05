@@ -4,6 +4,9 @@ import asyncio
 import logging
 import warnings
 
+from ..config import inline_args
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -13,12 +16,12 @@ files_path = [
                         "examples/03-file-upload/utils/files/ny.png"
                   ]
 
-async def run_example():
+async def run_example(backend:str, model:str):
       agent = LLMAgent(
-                  llm_backend="ollama",
+                  llm_backend=backend,
                   agent_name="File ingestor",
                   sys_instructions="You have to provide concise explanations of the uploaded files",
-                  model_name="qwen3:8b",
+                  model_name=model,
                   tools=[]
             )
 
@@ -28,4 +31,5 @@ async def run_example():
       logger.info(f"FINAL RESPONSE is {response}")
 
 if __name__ == "__main__":
-    asyncio.run(run_example())
+    asyncio.run(run_example(backend=inline_args.backend,
+                             model=inline_args.model))

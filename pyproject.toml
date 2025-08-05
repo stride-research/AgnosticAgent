@@ -43,7 +43,7 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/stride-research/agentic_ai_framework"
+Homepage = "https://github.com/stride-research/AgnosticAgent"
 
 [tool.black]
 line-length = 88
