@@ -2,8 +2,8 @@
 import argparse
 from .utils.schemas import ORMResponseSchema, ChunkerResponseSchema
 from .utils.toolkit import OrchestratorToolkit
-from agentic_ai import LLMAgent
-from agentic_ai.utils import ExtraResponseSettings
+from agnostic_agent import LLMAgent
+from agnostic_agent.utils import ExtraResponseSettings
 
 from ..config import inline_args
 
@@ -49,8 +49,6 @@ async def run_example(file_path: str, backend: str, model: str):
       )
 
 if __name__ == "__main__":
-    
-    # Ollama can't handle pdfs
     #path = "examples/05-orchestrator-worker/media/Untitled document (1).pdf"
     path = "examples/05-orchestrator-worker/media/Letter - Javier Domínguez Segura.pdf"
     asyncio.run(run_example(file_path=path, backend=inline_args.backend, model=inline_args.model))

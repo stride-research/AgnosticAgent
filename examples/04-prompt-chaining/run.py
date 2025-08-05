@@ -1,5 +1,5 @@
 from .utils.schemas import LanguageSchema
-from agentic_ai import LLMAgent
+from agnostic_agent import LLMAgent
 
 import logging
 import asyncio

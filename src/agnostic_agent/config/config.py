@@ -16,5 +16,5 @@ def get_config(path: str) -> Dict[str, Any]:
             data = yaml.safe_load(f)
             return data
 
-path = "src/agentic_ai/config/config.yaml"
+path = "src/agnostic_agent/config/config.yaml"
 CONFIG_DICT = get_config(path=path)

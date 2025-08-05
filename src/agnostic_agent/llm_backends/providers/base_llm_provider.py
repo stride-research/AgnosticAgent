@@ -4,16 +4,16 @@ from typing import Optional, Any, List, Dict, Type
 import logging
 import time
 
-from ..utils.core.schemas import LLMResponse
+from ...utils.core.schemas import LLMResponse
 import json
 from pydantic import BaseModel
-from agentic_ai.utils import exception_controller_executor_instance
+from agnostic_agent.utils import exception_controller_executor_instance
 
 logger = logging.getLogger(__name__)
 
 
 
-class LLMProvider(ABC):
+class BaseLLMProvider(ABC):
       """
       FEATURES
             - Mandatory support

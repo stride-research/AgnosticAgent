@@ -1,7 +1,6 @@
-from .openai_provider import OpenAIProvider
-import os
+from ..providers.openai_provider import OpenAIProvider
 
-class Ollama(OpenAIProvider):
+class OllamaClient(OpenAIProvider):
     def __init__(self,
                 agent_name: str,
                 model_name: str = "qwen3:8b",

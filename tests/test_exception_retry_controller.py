@@ -2,7 +2,7 @@ import pytest
 import asyncio
 from unittest.mock import AsyncMock, patch
 
-from agentic_ai.utils.fault_tolerance.exception_retry_controller import ExceptionRetryController
+from agnostic_agent.utils.fault_tolerance.exception_retry_controller import ExceptionRetryController
 
 from openai import APIStatusError
 import httpx

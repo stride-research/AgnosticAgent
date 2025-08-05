@@ -1,4 +1,4 @@
-from agentic_ai.config.config import CONFIG_DICT
+from agnostic_agent.config.config import CONFIG_DICT
 
 from enum import Enum
 from pydantic import BaseModel
