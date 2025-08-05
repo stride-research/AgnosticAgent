@@ -1,19 +1,13 @@
+# Orchestrator-Worker Example
 
+This example demonstrates:
 
-- Make sure you can have the orchestrator recalling subagents  
-- I want an orchestrator to:
-      - run subagents in paralell
-      - subagents are from the same class than the parent. 
-      - subagent also have tasks in parallel
+- **Hierarchical agent orchestration**: An orchestrator agent manages and delegates tasks to multiple subagents (workers), each processing a section of input in parallel.
+- **Recursive agent spawning**: Subagents are instances of the same class as the parent, enabling recursive, scalable workflows.
+- **Parallelism at multiple levels**: Both the orchestrator and its subagents can run tasks in parallel, maximizing efficiency.
+- **Complex document processing**: Designed for use cases like summarizing PDFs by section and extracting keywords per section.
 
-
-# Application context
-- Objective: summarize pdf per sections, provide keywords per section 
-- Architecture
-  - ORM: Retrieves all text from pdf
-  - Orchestrator: receives text, chunks into sections
-  - Subagents (in parallel): summarizes a given section. Identifies keyword for a given chunk 
-    - NOTE: This is an artificial example. Given the fact that the two aforementioned activities \
-    solely depend on the LLM's internal knowledge (no external usage) you could trade some latency 
-    by asking to do everything in a single prompt but saving significant prompts (no need to have a \
-    duplicated input)
+**Comparison:**
+- Goes beyond single-agent and flat tool orchestration by introducing multi-level, dynamic agent hierarchies.
+- Demonstrates advanced workflow patterns (parallel, recursive, and hierarchical) not present in other examples.
+- Useful for large-scale, modular processing tasks where work can be distributed and aggregated.

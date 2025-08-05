@@ -14,11 +14,9 @@ from pythonjsonlogger import jsonlogger
 
 
 import logging
-import base64
 
 class FileUploadFilter(logging.Filter):
-    """
-    A custom logging filter to redact base64 file data from log records.
+    """A custom logging filter to redact base64 file data from log records.
 
     This filter inspects the log message for a pattern indicating an embedded file.
     If the pattern is found, the base64 data is replaced with a placeholder
@@ -26,21 +24,21 @@ class FileUploadFilter(logging.Filter):
     """
 
     def __init__(self, pattern_to_find: str = "'type': 'file', 'file':"):
-        """
-        Initializes the filter.
+        """Initializes the filter.
 
         Args:
             pattern_to_find (str): The specific string pattern to search for in log messages
                                    to identify records that need redaction.
         """
         super().__init__()
-        self.pattern_to_find = pattern_to_find
-        # This regex finds the "'file_data':" key and replaces its value.
-        self.redaction_regex = re.compile(r"('file_data':\s*')data:[^']+'")
+        # Regex to find 'file_data': 'data:...' and replace the base64 part
+        self.file_data_regex = re.compile(r"('file_data':\s*')data:[^']+'")
+        # Regex to find 'url': 'data:image/...' and replace the base64 part
+        self.image_url_regex = re.compile(r"('url':\s*')data:image[^']+'")
+
 
     def filter(self, record: logging.LogRecord) -> bool:
-        """
-        Checks a log record and redacts file data if present.
+        """Checks a log record and redacts file data if present.
 
         The record is modified in-place to replace the base64 content with a
         placeholder.
@@ -51,28 +49,28 @@ class FileUploadFilter(logging.Filter):
         Returns:
             bool: Always returns True, as records are modified, not suppressed.
         """
-        # The log record's message might not be formatted yet, so we get the full string.
         message = record.getMessage()
+        original_message = message
 
-        # Check if the record is one that we need to process
-        if self.pattern_to_find in message:
-            # Redact the base64 content using the regex
-            new_message = self.redaction_regex.sub(r"\1[...DATA REDACTED...]'", message)
-            
-            # If the message was changed, update the log record
-            if new_message != message:
-                record.msg = new_message
-                record.args = ()  # The message is now a complete string, so clear args.
+        # Apply redaction for file_data pattern
+        message = self.file_data_regex.sub(r"\1[...FILE DATA REDACTED...]'", message)
 
-                # Clear any cached message to ensure the formatter uses the new msg
-                if hasattr(record, 'message'):
-                    delattr(record, 'message')
+        # Apply redaction for image_url pattern
+        message = self.image_url_regex.sub(r"\1[...IMAGE DATA REDACTED...]'", message)
 
-        return True  # Always allow the record to be logged (either original or redacted)
+        # If any redaction occurred, update the record
+        if message != original_message:
+            record.msg = message
+            record.args = ()  # The message is now a complete string, so clear args.
+
+            if hasattr(record, 'message'):
+                delattr(record, 'message')
+
+        return True  # Always allow the record to be logged
+
     
 class ContextAwareQueueHandler(logging.handlers.QueueHandler):
-    """
-    Injects dynamic fields before enqueing
+    """Injects dynamic fields before enqueing
     """
     def prepare(self, record):
         context = LOG_CONTEXT.get()
@@ -123,8 +121,7 @@ class Logger():
             return formatter
     
     def shutdown(self):
-        """
-        Stops the QueueListener and flushes any remaining logs.
+        """Stops the QueueListener and flushes any remaining logs.
         """
         if self.listener:
             logging.info("Shutting down logging listener...")
@@ -138,8 +135,7 @@ LOG_CONTEXT = contextvars.ContextVar("log_context", default={})
 
 @contextmanager
 def add_context_to_log(**kwargs):
-    """
-    A context manager to add dynamic data to logs.
+    """A context manager to add dynamic data to logs.
     """
     current_context = LOG_CONTEXT.get()
     new_context = {**current_context, **kwargs}

@@ -1,10 +1,13 @@
-import asyncio
+import argparse
 from .utils.toolkit import MathematicianToolkit
-from agentic_ai import AIAgent
+from agentic_ai import LLMAgent
 from agentic_ai.utils import ExtraResponseSettings
 
 import logging
 import asyncio
+
+from ...config import inline_args
+
 
 from pydantic import BaseModel
 
@@ -17,17 +20,19 @@ y = 3
 class Schema(BaseModel):
       math_result: int | float
 
-async def run_example():
-      LLMAgent = AIAgent(
-                              agent_name="Mathematician",
-                              model_name="google/gemini-2.5-pro",
-                              sys_instructions="Do some basic arithmetic with the provided tools",
-                              response_schema=Schema,
-                              tools=MathematicianToolkit().extract_tools_names()
+async def run_example(backend:str, model:str):
+      agent = LLMAgent(
+                        llm_backend=backend,
+                        agent_name="Mathematician",
+                        model_name=model,
+                        sys_instructions="Do some basic arithmetic with the provided tools",
+                        response_schema=Schema,
+                        tools=MathematicianToolkit().extract_tools_names()
                         )
 
       message = f"Add {x} to {y}. Then multiply the result of this operation to {x}, then stop"
-      response = await LLMAgent.prompt(message=message)
+      response = await agent.prompt(message=message)
 
 if __name__ == "__main__":
-    asyncio.run(run_example())
+    asyncio.run(run_example(backend=inline_args.backend, 
+                            model=inline_args.model))
