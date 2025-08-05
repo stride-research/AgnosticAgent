@@ -52,6 +52,5 @@ if __name__ == "__main__":
     
     # Ollama can't handle pdfs
     #path = "examples/05-orchestrator-worker/media/Untitled document (1).pdf"
-    path = "examples/05-orchestrator-worker/media/ny.png"
-    #path = "examples/05-orchestrator-worker/media/Letter - Javier Domínguez Segura.pdf"
+    path = "examples/05-orchestrator-worker/media/Letter - Javier Domínguez Segura.pdf"
     asyncio.run(run_example(file_path=path, backend=inline_args.backend, model=inline_args.model))

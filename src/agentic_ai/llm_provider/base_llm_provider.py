@@ -7,6 +7,7 @@ import time
 from ..utils.core.schemas import LLMResponse
 import json
 from pydantic import BaseModel
+from agentic_ai.utils import exception_controller_executor_instance
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +37,20 @@ class LLMProvider(ABC):
       sys_instructions = ""
       response_schema : Optional[Type[BaseModel]]= None
       tools = []
-      @abstractmethod
+      
       async def prompt(self,
                    message: str, 
                    files_path: Optional[List[str]] = None
                    ) -> LLMResponse:
+            output = await exception_controller_executor_instance.execute_with_retries(func=self.get_model_response,
+                                                                                       message=message,
+                                                                                       files_path=files_path)
+            return output
+
+      @abstractmethod
+      async def get_model_response(self,
+                   message: str, 
+                   files_path: Optional[List[str]] = None) -> LLMResponse:
             pass
 
       @abstractmethod

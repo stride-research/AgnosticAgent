@@ -284,7 +284,7 @@ class OpenAIProvider(LLMProvider):
                 )
         return response
 
-    async def prompt(self,
+    async def get_model_response(self,
                 message: str,
                 files_path: Optional[List[str]] = None) -> LLMResponse:
         """Sends a prompt to the LLM and returns the final response."""

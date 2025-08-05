@@ -43,4 +43,3 @@ class ChefToolkit(ToolkitBase):
         }
         return {"price": dummy_prices.get(ingredient.lower(), 0.0)}
 
-ChefToolkit().extract_tools_names()

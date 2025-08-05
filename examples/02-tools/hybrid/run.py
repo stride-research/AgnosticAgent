@@ -20,7 +20,7 @@ async def run_example(backend:str, model:str):
                   agent_name="ChefAssistant",
                   model_name=model,
                   sys_instructions="Given a dish you need to first provide the ingredients required, then return the price of thesee ingredients. Use the provided tools.\
-                  For get_ingredient_price tool you may need to call it several times in parallel with different ingredients.  ",
+                  Consider getting the price per ingredients in parallel  ",
                   tools=ChefToolkit().extract_tools_names()
             )
 
