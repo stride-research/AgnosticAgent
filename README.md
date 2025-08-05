@@ -1,4 +1,4 @@
-# agentic_ai_framework
+# AgnosticAgent
 
 A modular framework for building agentic AI systems with advanced LLM orchestration, tool/function calling, and OpenRouter integration. Designed for researchers and developers to rapidly prototype and deploy AI agents with structured outputs, async support, and extensible toolkits.
 
