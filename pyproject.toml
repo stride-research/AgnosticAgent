@@ -45,6 +45,12 @@ dev = [
 [project.urls]
 Homepage = "https://github.com/stride-research/AgnosticAgent"
 
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+agnostic_agent = ["config.yaml", "examples/**", "README.md"]
+
 [tool.black]
 line-length = 88
 target-version = ["py38"]
