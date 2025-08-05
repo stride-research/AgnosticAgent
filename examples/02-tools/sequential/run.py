@@ -1,7 +1,7 @@
 import argparse
 from .utils.toolkit import MathematicianToolkit
-from agentic_ai import LLMAgent
-from agentic_ai.utils import ExtraResponseSettings
+from agnostic_agent import LLMAgent
+from agnostic_agent.utils import ExtraResponseSettings
 
 import logging
 import asyncio

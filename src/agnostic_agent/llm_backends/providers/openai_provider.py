@@ -1,7 +1,7 @@
-from ..utils.core.schemas import LLMResponse, ExtraResponseSettings, ToolSpec
-from ..utils.core.function_calling.openai import FunctionalToolkit, tool_registry
-from .base_llm_provider import LLMProvider
-from agentic_ai.utils import add_context_to_log
+from ...utils.core.schemas import LLMResponse, ExtraResponseSettings, ToolSpec
+from ...utils.core.function_calling.openai import FunctionalToolkit, tool_registry
+from .base_llm_provider import BaseLLMProvider
+from agnostic_agent.utils import add_context_to_log
 
 import json
 import os
@@ -10,7 +10,6 @@ import base64
 import asyncio
 import aiofiles
 import time
-import inspect
 from typing import Optional, Any, Tuple, List, Dict, Type, Callable, Coroutine
 import concurrent.futures
 
@@ -32,7 +31,7 @@ DEV_INSTRUCTIONS = """
             - If there is any logical error in the request, express it, then stop.
             """
 
-class OpenAIProvider(LLMProvider):
+class OpenAIProvider(BaseLLMProvider):
     def __init__(self,
                 agent_name: str,
                 model_name: str,

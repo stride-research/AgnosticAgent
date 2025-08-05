@@ -5,7 +5,7 @@ import argparse
 import logging
 
 from .utils.toolkit import ChefToolkit
-from agentic_ai import LLMAgent
+from agnostic_agent import LLMAgent
 
 from ...config import inline_args
 

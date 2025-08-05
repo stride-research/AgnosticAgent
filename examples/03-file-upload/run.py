@@ -1,4 +1,4 @@
-from agentic_ai import LLMAgent
+from agnostic_agent import LLMAgent
 
 import asyncio
 import logging

@@ -1,7 +1,7 @@
 import asyncio
 import argparse
 from .utils.schemas import Word
-from agentic_ai import LLMAgent
+from agnostic_agent import LLMAgent
 from ..config import inline_args
 
 import logging

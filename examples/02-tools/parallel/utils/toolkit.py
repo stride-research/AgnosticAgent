@@ -1,6 +1,6 @@
 
-from agentic_ai.utils import tool
-from agentic_ai import ToolkitBase
+from agnostic_agent.utils import tool
+from agnostic_agent import ToolkitBase
 
 import logging
 

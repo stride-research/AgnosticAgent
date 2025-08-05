@@ -1,7 +1,7 @@
-from .openai_provider import OpenAIProvider
+from ..providers.openai_provider import OpenAIProvider
 import os
 
-class OpenRouter(OpenAIProvider):
+class OpenRouterClient(OpenAIProvider):
     def __init__(self, 
                 agent_name: str,
                 model_name: str = "google/gemini-2.5-pro",

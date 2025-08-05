@@ -1,6 +1,6 @@
 from .schemas import ChunkNotNamed
-from agentic_ai.utils import tool, add_context_to_log
-from agentic_ai import ToolkitBase, LLMAgent
+from agnostic_agent.utils import tool, add_context_to_log
+from agnostic_agent import ToolkitBase, LLMAgent
 
 import logging
 

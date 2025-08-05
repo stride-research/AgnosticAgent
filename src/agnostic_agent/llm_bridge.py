@@ -9,8 +9,8 @@ the unified interface and its integration via object composition
 """
 
 from .utils.core.schemas import ExtraResponseSettings, LLMResponse
-from agentic_ai import OpenRouter, Ollama, LLMProvider
-from agentic_ai.utils import add_context_to_log
+from agnostic_agent import BaseLLMProvider, OpenRouterClient, OllamaClient
+from agnostic_agent.utils import add_context_to_log
 
 
 from typing import Optional, List, Type, Any
@@ -46,12 +46,13 @@ class LLMAgent():
 
       def _resolve_llm_backend_object(self, 
                                     llm_backend: str,
-                                    **kwargs) -> LLMProvider: # simple factory pattern
+                                    **kwargs) -> BaseLLMProvider: # simple factory pattern
+            logger.debug(f"KWARGS IS: {kwargs}")
             match llm_backend.strip().lower():
                   case "openrouter":
-                        return OpenRouter(**kwargs)
+                        return OpenRouterClient(**kwargs)
                   case "ollama":
-                        return Ollama(**kwargs)
+                        return OllamaClient(**kwargs)
                   case _:
                         raise ValueError(f"Unknown LLM backend: {llm_backend}")
       
