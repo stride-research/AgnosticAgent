@@ -1,5 +1,7 @@
-from ..providers.openai_provider import OpenAIProvider
 import os
+
+from ..providers.openai_provider import OpenAIProvider
+
 
 class OpenRouterClient(OpenAIProvider):
     def __init__(self, 

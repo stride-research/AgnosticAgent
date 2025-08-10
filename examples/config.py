@@ -1,5 +1,6 @@
-import yaml
 import argparse
+
+import yaml
 
 FILE_PATH = "examples/config.yaml"
 

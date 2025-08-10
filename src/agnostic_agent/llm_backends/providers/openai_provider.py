@@ -4,25 +4,26 @@ TO BE DONE:
     - Break class into: Configuration manager, File processing, Tool execution, Logging 
 """
 
-from ...utils.core.schemas import LLMResponse, ExtraResponseSettings, ToolSpec
-from ...utils.core.function_calling.openai import FunctionalToolkit, tool_registry
-from .base_llm_provider import BaseLLMProvider
-from agnostic_agent.utils import add_context_to_log
-
-import json
-import os
-import logging
-import base64
 import asyncio
-import aiofiles
-import time
-from typing import Optional, Any, Tuple, List, Dict, Type, Callable, Coroutine
+import base64
 import concurrent.futures
+import json
+import logging
+import os
+import time
+from typing import Any, Callable, Coroutine, Dict, List, Optional, Tuple, Type
 
+import aiofiles
+from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletion
 from pydantic import BaseModel
-from dotenv import load_dotenv
+
+from agnostic_agent.utils import add_context_to_log
+
+from ...utils.core.function_calling.openai import FunctionalToolkit, tool_registry
+from ...utils.core.schemas import ExtraResponseSettings, LLMResponse, ToolSpec
+from .base_llm_provider import BaseLLMProvider
 
 load_dotenv()
 

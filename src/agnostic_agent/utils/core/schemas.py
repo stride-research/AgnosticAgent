@@ -1,11 +1,11 @@
+from enum import Enum
+from typing import Any, Callable, Optional, Type
+
+import yaml
+from pydantic import BaseModel
+
 from agnostic_agent.config.config import CONFIG_DICT
 
-from enum import Enum
-from pydantic import BaseModel
-from typing import Any, Type, Optional, Callable
-
-from pydantic import BaseModel
-import yaml
 
 class ToolSpec(BaseModel):
       func: Callable

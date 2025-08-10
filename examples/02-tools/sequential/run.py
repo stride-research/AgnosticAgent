@@ -1,16 +1,14 @@
 import argparse
-from .utils.toolkit import MathematicianToolkit
-from agnostic_agent import LLMAgent
-from agnostic_agent.utils import ExtraResponseSettings
-
-import logging
 import asyncio
-
-from ...config import inline_args
-
+import logging
 
 from pydantic import BaseModel
 
+from agnostic_agent import LLMAgent
+from agnostic_agent.utils import ExtraResponseSettings
+
+from ...config import inline_args
+from .utils.toolkit import MathematicianToolkit
 
 logger = logging.getLogger(__name__)
 

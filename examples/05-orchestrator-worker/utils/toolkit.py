@@ -1,10 +1,11 @@
-from .schemas import ChunkNotNamed
-from agnostic_agent.utils import tool, add_context_to_log
-from agnostic_agent import ToolkitBase, LLMAgent
-
 import logging
 
 from pydantic import BaseModel, Field
+
+from agnostic_agent import LLMAgent, ToolkitBase
+from agnostic_agent.utils import add_context_to_log, tool
+
+from .schemas import ChunkNotNamed
 
 logger = logging.getLogger(__name__)
 class OrchestratorToolkit(ToolkitBase):

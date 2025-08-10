@@ -1,10 +1,10 @@
 
-from agnostic_agent.utils import tool
-from agnostic_agent import ToolkitBase
-
 import logging
 
-from pydantic import Field, BaseModel
+from pydantic import BaseModel, Field
+
+from agnostic_agent import ToolkitBase
+from agnostic_agent.utils import tool
 
 logger = logging.getLogger(__name__)
 

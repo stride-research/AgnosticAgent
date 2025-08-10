@@ -1,12 +1,12 @@
-from .utils.core.schemas import ExtraResponseSettings, LLMResponse
-from agnostic_agent import BaseLLMProvider, OpenRouterClient, OllamaClient
-from agnostic_agent.utils import add_context_to_log
-
-
-from typing import Optional, List, Type, Any
 import logging
+from typing import Any, List, Optional, Type
 
 from pydantic import BaseModel
+
+from agnostic_agent import BaseLLMProvider, OllamaClient, OpenRouterClient
+from agnostic_agent.utils import add_context_to_log
+
+from .utils.core.schemas import ExtraResponseSettings, LLMResponse
 
 logger = logging.getLogger(__name__)
 

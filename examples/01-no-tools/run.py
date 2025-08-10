@@ -1,10 +1,11 @@
-import asyncio
 import argparse
-from .utils.schemas import Word
-from agnostic_agent import LLMAgent
-from ..config import inline_args
-
+import asyncio
 import logging
+
+from agnostic_agent import LLMAgent
+
+from ..config import inline_args
+from .utils.schemas import Word
 
 logger = logging.getLogger(__name__)
 

@@ -1,5 +1,6 @@
 from ..providers.openai_provider import OpenAIProvider
 
+
 class OllamaClient(OpenAIProvider):
     def __init__(self,
                 agent_name: str,

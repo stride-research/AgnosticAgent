@@ -1,19 +1,16 @@
-from .colorfulFormatter import ColoredJSONFormatter
-
+import atexit
+import contextvars
 import logging
 import logging.handlers
 import queue
+import re
 import sys
 from contextlib import contextmanager
-import contextvars
-import atexit
-import re
 
 from pythonjsonlogger import jsonlogger
 
+from .colorfulFormatter import ColoredJSONFormatter
 
-
-import logging
 
 class FileUploadFilter(logging.Filter):
     """A custom logging filter to redact base64 file data from log records.

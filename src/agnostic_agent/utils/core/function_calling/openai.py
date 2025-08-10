@@ -1,8 +1,8 @@
-from typing import List, Type, Any, Dict
+import inspect
 import logging
+from typing import Any, Dict, List, Type
 
 from ..schemas import ToolSpec
-import inspect
 
 logger = logging.getLogger(__name__)
 

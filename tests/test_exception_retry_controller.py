@@ -1,11 +1,13 @@
-import pytest
 import asyncio
 from unittest.mock import AsyncMock, patch
 
-from agnostic_agent.utils.fault_tolerance.exception_retry_controller import ExceptionRetryController
-
-from openai import APIStatusError
 import httpx
+import pytest
+from openai import APIStatusError
+
+from agnostic_agent.utils.fault_tolerance.exception_retry_controller import \
+    ExceptionRetryController
+
 
 # Helper function to create a dummy httpx.Request for APIStatusError
 def create_mock_api_error(status_code: int, message: str = "Fake error"):

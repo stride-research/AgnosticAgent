@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-import asyncio
 import argparse
+import asyncio
 import logging
 
-from .utils.toolkit import WeatherToolkit
 from agnostic_agent import LLMAgent
+
 from ...config import inline_args
-
-
+from .utils.toolkit import WeatherToolkit
 
 """Temperature example """
 

@@ -1,9 +1,10 @@
 
-import os
-from google.genai import Client
 import logging
+import os
 import sys
 import warnings
+
+from google.genai import Client
 
 logger = logging.getLogger(__name__)
 warnings.warn("Model as AI agentic backend is outdated. Please use the newer OpenRouter adaptation")

@@ -1,7 +1,7 @@
-from agnostic_agent.utils import tool
-from agnostic_agent import ToolkitBase
+from pydantic import BaseModel, Field
 
-from pydantic import Field, BaseModel
+from agnostic_agent import ToolkitBase
+from agnostic_agent.utils import tool
 
 
 class MathematicianToolkit(ToolkitBase):

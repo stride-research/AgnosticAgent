@@ -1,6 +1,0 @@
-
-python-json-logger
-openai
-pydantic
-dotenv
-PyYAML

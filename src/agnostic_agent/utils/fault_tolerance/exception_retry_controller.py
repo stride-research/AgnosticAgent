@@ -1,12 +1,11 @@
 """ Create some piece of code that runs x times given y exeception """
-import logging 
 import asyncio
 import json
+import logging
+from typing import Callable, Dict, Type
 
 from openai import APIStatusError
 from pydantic import BaseModel
-
-from typing import Dict, Callable, Type
 
 logger = logging.getLogger(__name__)
 
