@@ -1,3 +1,9 @@
+
+"""
+TO BE DONE:
+    - Break class into: Configuration manager, File processing, Tool execution, Logging 
+"""
+
 from ...utils.core.schemas import LLMResponse, ExtraResponseSettings, ToolSpec
 from ...utils.core.function_calling.openai import FunctionalToolkit, tool_registry
 from .base_llm_provider import BaseLLMProvider

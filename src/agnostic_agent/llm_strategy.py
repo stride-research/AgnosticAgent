@@ -1,13 +1,3 @@
-
-"""
-- Interface/Implementation: LLM provider (OpenRouter, Google, )
-- Abstraction/Subject: 
-
-We are using this pattern not because of the combinationatorial explosion, but rather because of the 
-the unified interface and its integration via object composition
-
-"""
-
 from .utils.core.schemas import ExtraResponseSettings, LLMResponse
 from agnostic_agent import BaseLLMProvider, OpenRouterClient, OllamaClient
 from agnostic_agent.utils import add_context_to_log
@@ -58,10 +48,11 @@ class LLMAgent():
       
       async def prompt(self,
                     message: str,  
-                    files_path: Optional[List[str]] = None) -> LLMResponse:  # bridge pattern
+                    files_path: Optional[List[str]] = None) -> LLMResponse:  # strategy pattern
             with add_context_to_log(agent_name=self.agent_name, model_name=self.model_name, llm_backend=self.llm_backend):
                   result = await self.llm_backend.prompt(message=message,
                                                 files_path=files_path)
                   logger.debug(f"Final text response is: {result.final_response}")
                   logger.debug(f"Final parsed response is: {result.parsed_response}")
             return result
+      
