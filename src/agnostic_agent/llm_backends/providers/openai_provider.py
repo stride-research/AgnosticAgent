@@ -296,7 +296,7 @@ class OpenAIProvider(BaseLLMProvider):
         """Sends a prompt to the LLM and returns the final response."""
         starting_time = time.time()
         self.number_of_interactions = 0
-        logger.info(f"Starting prompt. {"Files included" if files_path else "No files included."} with model {self.model_name}")
+        logger.info(f"Starting prompt. {'Files included' if files_path else 'No files included.'} with model {self.model_name}")
         messages = []
         user_content = [{"type": "text", "text": message}]
         if files_path:

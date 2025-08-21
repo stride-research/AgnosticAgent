@@ -16,7 +16,7 @@ x = 4
 y = 3
 
 class Schema(BaseModel):
-      math_result: int | float
+      math_result: int 
 
 async def run_example(backend:str, model:str):
       agent = LLMAgent(

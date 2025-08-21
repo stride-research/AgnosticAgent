@@ -38,13 +38,14 @@ class LLMAgent():
                                     llm_backend: str,
                                     **kwargs) -> BaseLLMProvider: # simple factory pattern
             logger.debug(f"KWARGS IS: {kwargs}")
-            match llm_backend.strip().lower():
-                  case "openrouter":
-                        return OpenRouterClient(**kwargs)
-                  case "ollama":
-                        return OllamaClient(**kwargs)
-                  case _:
-                        raise ValueError(f"Unknown LLM backend: {llm_backend}")
+            llm_provider = llm_backend.strip().lower()
+            if llm_provider == "openrouter":
+                  return OpenRouterClient(**kwargs)
+            elif llm_provider == "ollama":
+                  return OllamaClient(**kwargs)
+            else: 
+                  raise ValueError(f"Unknown LLM backend: {llm_backend}")
+
       
       async def prompt(self,
                     message: str,  
