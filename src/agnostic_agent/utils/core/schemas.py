@@ -13,8 +13,9 @@ class ToolSpec(BaseModel):
       is_coroutine: bool
 
 class LLMResponse(BaseModel):
-    final_response: str
+    final_text_response: str
     parsed_response: Optional[Any] = None
+    reasoning: Optional[Any] = None
 
 extra_response_config = CONFIG_DICT["AI_agent"]["extra_response_settings"]
 

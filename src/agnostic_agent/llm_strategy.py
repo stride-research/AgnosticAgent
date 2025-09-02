@@ -53,7 +53,8 @@ class LLMAgent():
             with add_context_to_log(agent_name=self.agent_name, model_name=self.model_name, llm_backend=self.llm_backend):
                   result = await self.llm_backend.prompt(message=message,
                                                 files_path=files_path)
-                  logger.debug(f"Final text response is: {result.final_response}")
+                  logger.debug(f"Final text response is: {result.final_text_response}")
                   logger.debug(f"Final parsed response is: {result.parsed_response}")
+                  logger.debug(f"Reasoning: {result.reasoning}")
             return result
       

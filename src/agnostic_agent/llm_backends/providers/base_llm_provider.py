@@ -105,14 +105,19 @@ class BaseLLMProvider(ABC):
             """
             logger.debug(f"Response is: {prompt_response}")
 
+            final_text_response = prompt_response.content
+            reasoning = getattr(prompt_response, 'reasoning', None)
+
+
             
             if self.response_schema:
-                json_dict = json.loads(prompt_response)
+                json_dict = json.loads(final_text_response)
                 parsed_data = self.response_schema.model_validate(json_dict)
             
             return LLMResponse(
-                final_response=prompt_response,
-                parsed_response=parsed_data if self.response_schema else None
+                final_text_response=final_text_response,
+                parsed_response=parsed_data if self.response_schema else None,
+                reasoning=reasoning
             )
 
 

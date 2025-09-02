@@ -323,5 +323,5 @@ class OpenAIProvider(BaseLLMProvider):
 
         # Loggin final metrics
         self._summary_log(starting_time=starting_time)
-        processed_response =  self._process_response(response.choices[0].message.content)
+        processed_response =  self._process_response(response.choices[0].message)
         return processed_response
